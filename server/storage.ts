@@ -3,9 +3,11 @@ import {
   type Therapist, type InsertTherapist,
   type Patient, type InsertPatient,
   type Appointment, type InsertAppointment,
-  type Session, type InsertSession
+  type Session, type InsertSession,
+  type User, type InsertUser
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import bcrypt from "bcrypt";
 
 export interface IStorage {
   getTherapyTypes(): Promise<TherapyType[]>;
@@ -28,6 +30,12 @@ export interface IStorage {
   getSessions(): Promise<Session[]>;
   getSession(id: string): Promise<Session | undefined>;
   createSession(session: InsertSession): Promise<Session>;
+  
+  getUsers(): Promise<User[]>;
+  getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  verifyPassword(email: string, password: string): Promise<User | null>;
 }
 
 export class MemStorage implements IStorage {
@@ -36,6 +44,7 @@ export class MemStorage implements IStorage {
   private patients: Map<string, Patient>;
   private appointments: Map<string, Appointment>;
   private sessions: Map<string, Session>;
+  private users: Map<string, User>;
 
   constructor() {
     this.therapyTypes = new Map();
@@ -43,6 +52,7 @@ export class MemStorage implements IStorage {
     this.patients = new Map();
     this.appointments = new Map();
     this.sessions = new Map();
+    this.users = new Map();
     
     this.seedData();
   }
@@ -95,6 +105,14 @@ export class MemStorage implements IStorage {
       specialties: ["Terapia del Lenguaje", "Foniatría"],
       avatarInitials: "AM"
     });
+
+    const adminPasswordHash = bcrypt.hashSync("admin123", 10);
+    this.createUserSync({
+      email: "admin@terapiaclinic.com",
+      passwordHash: adminPasswordHash,
+      name: "Administrador",
+      role: "admin"
+    });
   }
 
   private createTherapyTypeSync(therapyType: InsertTherapyType): TherapyType {
@@ -109,6 +127,13 @@ export class MemStorage implements IStorage {
     const newTherapist: Therapist = { ...therapist, id };
     this.therapists.set(id, newTherapist);
     return newTherapist;
+  }
+
+  private createUserSync(user: InsertUser): User {
+    const id = randomUUID();
+    const newUser: User = { ...user, id, createdAt: new Date() };
+    this.users.set(id, newUser);
+    return newUser;
   }
 
   async getTherapyTypes(): Promise<TherapyType[]> {
@@ -201,6 +226,30 @@ export class MemStorage implements IStorage {
     };
     this.sessions.set(id, session);
     return session;
+  }
+
+  async getUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.email === email);
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    return this.createUserSync(insertUser);
+  }
+
+  async verifyPassword(email: string, password: string): Promise<User | null> {
+    const user = await this.getUserByEmail(email);
+    if (!user) return null;
+    
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    return isValid ? user : null;
   }
 }
 

@@ -60,6 +60,15 @@ export const sessions = pgTable("sessions", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  name: text("name").notNull(),
+  role: text("role").notNull().default("therapist"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 export const insertTherapyTypeSchema = createInsertSchema(therapyTypes).omit({
   id: true,
 });
@@ -84,6 +93,16 @@ export const insertSessionSchema = createInsertSchema(sessions).omit({
   createdAt: true,
 });
 
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const loginSchema = z.object({
+  email: z.string().email("Email inválido"),
+  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+});
+
 export type TherapyType = typeof therapyTypes.$inferSelect;
 export type InsertTherapyType = z.infer<typeof insertTherapyTypeSchema>;
 
@@ -98,3 +117,7 @@ export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 
 export type Session = typeof sessions.$inferSelect;
 export type InsertSession = z.infer<typeof insertSessionSchema>;
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type LoginCredentials = z.infer<typeof loginSchema>;
