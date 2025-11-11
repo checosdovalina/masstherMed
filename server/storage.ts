@@ -4,6 +4,7 @@ import {
   type Patient, type InsertPatient,
   type Appointment, type InsertAppointment,
   type Session, type InsertSession,
+  type Protocol, type InsertProtocol,
   type User, type InsertUser
 } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -35,6 +36,12 @@ export interface IStorage {
   getSession(id: string): Promise<Session | undefined>;
   createSession(session: InsertSession): Promise<Session>;
   
+  getProtocols(): Promise<Protocol[]>;
+  getProtocol(id: string): Promise<Protocol | undefined>;
+  createProtocol(protocol: InsertProtocol): Promise<Protocol>;
+  updateProtocol(id: string, protocol: Partial<InsertProtocol>): Promise<Protocol | undefined>;
+  deleteProtocol(id: string): Promise<boolean>;
+  
   getUsers(): Promise<User[]>;
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -48,6 +55,7 @@ export class MemStorage implements IStorage {
   private patients: Map<string, Patient>;
   private appointments: Map<string, Appointment>;
   private sessions: Map<string, Session>;
+  private protocols: Map<string, Protocol>;
   private users: Map<string, User>;
 
   constructor() {
@@ -56,6 +64,7 @@ export class MemStorage implements IStorage {
     this.patients = new Map();
     this.appointments = new Map();
     this.sessions = new Map();
+    this.protocols = new Map();
     this.users = new Map();
     
     this.seedData();
@@ -256,6 +265,38 @@ export class MemStorage implements IStorage {
     };
     this.sessions.set(id, session);
     return session;
+  }
+
+  async getProtocols(): Promise<Protocol[]> {
+    return Array.from(this.protocols.values());
+  }
+
+  async getProtocol(id: string): Promise<Protocol | undefined> {
+    return this.protocols.get(id);
+  }
+
+  async createProtocol(insertProtocol: InsertProtocol): Promise<Protocol> {
+    const id = randomUUID();
+    const protocol: Protocol = {
+      ...insertProtocol,
+      id,
+      createdAt: new Date()
+    };
+    this.protocols.set(id, protocol);
+    return protocol;
+  }
+
+  async updateProtocol(id: string, updates: Partial<InsertProtocol>): Promise<Protocol | undefined> {
+    const protocol = this.protocols.get(id);
+    if (!protocol) return undefined;
+    
+    const updatedProtocol = { ...protocol, ...updates };
+    this.protocols.set(id, updatedProtocol);
+    return updatedProtocol;
+  }
+
+  async deleteProtocol(id: string): Promise<boolean> {
+    return this.protocols.delete(id);
   }
 
   async getUsers(): Promise<User[]> {

@@ -60,6 +60,21 @@ export const sessions = pgTable("sessions", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+export const protocols = pgTable("protocols", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientId: varchar("patient_id").notNull(),
+  therapyTypeId: varchar("therapy_type_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  objectives: text("objectives"),
+  totalSessions: text("total_sessions").notNull(),
+  completedSessions: text("completed_sessions").notNull().default("0"),
+  status: text("status").notNull().default("active"),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
@@ -93,6 +108,11 @@ export const insertSessionSchema = createInsertSchema(sessions).omit({
   createdAt: true,
 });
 
+export const insertProtocolSchema = createInsertSchema(protocols).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -117,6 +137,9 @@ export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 
 export type Session = typeof sessions.$inferSelect;
 export type InsertSession = z.infer<typeof insertSessionSchema>;
+
+export type Protocol = typeof protocols.$inferSelect;
+export type InsertProtocol = z.infer<typeof insertProtocolSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
