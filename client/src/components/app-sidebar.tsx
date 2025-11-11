@@ -1,4 +1,4 @@
-import { Calendar, Users, UserCog, LayoutDashboard, FileText } from "lucide-react";
+import { Calendar, Users, UserCog, LayoutDashboard, FileText, Sparkles } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import logoHorizontal from "@assets/MM_Logo_Horizontal_Color_RGB_1762825081671.png";
 import {
@@ -37,6 +37,12 @@ const menuItems = [
     url: "/terapeutas",
     icon: UserCog,
     testId: "link-therapists",
+  },
+  {
+    title: "Servicios",
+    url: "/servicios",
+    icon: Sparkles,
+    testId: "link-services",
   },
   {
     title: "Expedientes",

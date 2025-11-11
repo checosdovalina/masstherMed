@@ -105,6 +105,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/therapy-types/:id", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertTherapyTypeSchema.partial().parse(req.body);
+      
+      if (Object.keys(validatedData).length === 0) {
+        return res.status(400).json({ error: "Debe proporcionar al menos un campo para actualizar" });
+      }
+      
+      if (validatedData.color && !/^#[0-9A-Fa-f]{6}$/.test(validatedData.color)) {
+        return res.status(400).json({ error: "El color debe ser un código hexadecimal válido (ej: #256BA2)" });
+      }
+      
+      const therapyType = await storage.updateTherapyType(req.params.id, validatedData);
+      if (!therapyType) {
+        return res.status(404).json({ error: "Tipo de terapia no encontrado" });
+      }
+      res.json(therapyType);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de tipo de terapia inválidos" });
+    }
+  });
+
+  app.delete("/api/therapy-types/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteTherapyType(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Tipo de terapia no encontrado" });
+      }
+      res.json({ message: "Tipo de terapia eliminado exitosamente" });
+    } catch (error) {
+      res.status(500).json({ error: "Error al eliminar tipo de terapia" });
+    }
+  });
+
   app.get("/api/therapists", requireAuth, async (req, res) => {
     try {
       const therapists = await storage.getTherapists();

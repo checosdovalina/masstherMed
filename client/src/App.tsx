@@ -18,6 +18,7 @@ import Patients from "@/pages/patients";
 import PatientDetail from "@/pages/patient-detail";
 import Appointments from "@/pages/appointments";
 import Therapists from "@/pages/therapists";
+import Services from "@/pages/services";
 import Records from "@/pages/records";
 import NotFound from "@/pages/not-found";
 
@@ -87,6 +88,7 @@ function DashboardLayout() {
               <Route path="/pacientes/:id" component={PatientDetail} />
               <Route path="/citas" component={Appointments} />
               <Route path="/terapeutas" component={Therapists} />
+              <Route path="/servicios" component={Services} />
               <Route path="/expedientes" component={Records} />
               <Route component={NotFound} />
             </Switch>

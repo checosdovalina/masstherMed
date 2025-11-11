@@ -13,6 +13,8 @@ export interface IStorage {
   getTherapyTypes(): Promise<TherapyType[]>;
   getTherapyType(id: string): Promise<TherapyType | undefined>;
   createTherapyType(therapyType: InsertTherapyType): Promise<TherapyType>;
+  updateTherapyType(id: string, therapyType: Partial<InsertTherapyType>): Promise<TherapyType | undefined>;
+  deleteTherapyType(id: string): Promise<boolean>;
   
   getTherapists(): Promise<Therapist[]>;
   getTherapist(id: string): Promise<Therapist | undefined>;
@@ -148,6 +150,19 @@ export class MemStorage implements IStorage {
 
   async createTherapyType(therapyType: InsertTherapyType): Promise<TherapyType> {
     return this.createTherapyTypeSync(therapyType);
+  }
+
+  async updateTherapyType(id: string, updates: Partial<InsertTherapyType>): Promise<TherapyType | undefined> {
+    const therapyType = this.therapyTypes.get(id);
+    if (!therapyType) return undefined;
+    
+    const updatedTherapyType = { ...therapyType, ...updates };
+    this.therapyTypes.set(id, updatedTherapyType);
+    return updatedTherapyType;
+  }
+
+  async deleteTherapyType(id: string): Promise<boolean> {
+    return this.therapyTypes.delete(id);
   }
 
   async getTherapists(): Promise<Therapist[]> {
