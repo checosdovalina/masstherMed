@@ -7,6 +7,7 @@ import {
   insertPatientSchema,
   insertAppointmentSchema,
   insertSessionSchema,
+  insertProtocolSchema,
   loginSchema
 } from "@shared/schema";
 
@@ -307,6 +308,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(session);
     } catch (error) {
       res.status(400).json({ error: "Invalid session data" });
+    }
+  });
+
+  app.get("/api/protocols", requireAuth, async (req, res) => {
+    try {
+      const protocols = await storage.getProtocols();
+      res.json(protocols);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener protocolos" });
+    }
+  });
+
+  app.get("/api/protocols/:id", requireAuth, async (req, res) => {
+    try {
+      const protocol = await storage.getProtocol(req.params.id);
+      if (!protocol) {
+        return res.status(404).json({ error: "Protocolo no encontrado" });
+      }
+      res.json(protocol);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener protocolo" });
+    }
+  });
+
+  app.post("/api/protocols", requireAuth, async (req, res) => {
+    try {
+      const parsedBody = {
+        ...req.body,
+        startDate: new Date(req.body.startDate),
+        endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
+      };
+      const validatedData = insertProtocolSchema.parse(parsedBody);
+      const protocol = await storage.createProtocol(validatedData);
+      res.status(201).json(protocol);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de protocolo inválidos" });
+    }
+  });
+
+  app.patch("/api/protocols/:id", requireAuth, async (req, res) => {
+    try {
+      const parsedBody: any = { ...req.body };
+      if (parsedBody.startDate) {
+        parsedBody.startDate = new Date(parsedBody.startDate);
+      }
+      if (parsedBody.endDate) {
+        parsedBody.endDate = new Date(parsedBody.endDate);
+      }
+      
+      const validatedData = insertProtocolSchema.partial().parse(parsedBody);
+      
+      if (Object.keys(validatedData).length === 0) {
+        return res.status(400).json({ error: "Debe proporcionar al menos un campo para actualizar" });
+      }
+      
+      const protocol = await storage.updateProtocol(req.params.id, validatedData);
+      if (!protocol) {
+        return res.status(404).json({ error: "Protocolo no encontrado" });
+      }
+      res.json(protocol);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de protocolo inválidos" });
+    }
+  });
+
+  app.delete("/api/protocols/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteProtocol(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Protocolo no encontrado" });
+      }
+      res.json({ message: "Protocolo eliminado exitosamente" });
+    } catch (error) {
+      res.status(500).json({ error: "Error al eliminar protocolo" });
     }
   });
 
