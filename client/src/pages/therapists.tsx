@@ -1,19 +1,55 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Plus, Mail, Phone } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Plus, Mail, Phone, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog";
 import { TherapistForm } from "@/components/therapist-form";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { Therapist } from "@shared/schema";
 
 export default function Therapists() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTherapist, setEditingTherapist] = useState<Therapist | null>(null);
+  const [deletingTherapist, setDeletingTherapist] = useState<Therapist | null>(null);
+  const { toast } = useToast();
 
   const { data: therapists, isLoading } = useQuery<Therapist[]>({
     queryKey: ["/api/therapists"],
+  });
+
+  const deleteTherapistMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/therapists/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/therapists"] });
+      toast({
+        title: "Terapeuta eliminado",
+        description: "El terapeuta ha sido eliminado exitosamente.",
+      });
+      setDeletingTherapist(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el terapeuta. Intenta nuevamente.",
+        variant: "destructive",
+      });
+    },
   });
 
   return (
@@ -39,6 +75,48 @@ export default function Therapists() {
             <TherapistForm onSuccess={() => setDialogOpen(false)} />
           </DialogContent>
         </Dialog>
+
+        <Dialog open={!!editingTherapist} onOpenChange={(open) => !open && setEditingTherapist(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Editar Terapeuta</DialogTitle>
+            </DialogHeader>
+            {editingTherapist && (
+              <TherapistForm 
+                therapist={editingTherapist} 
+                onSuccess={() => setEditingTherapist(null)} 
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={!!deletingTherapist} onOpenChange={(open) => !open && setDeletingTherapist(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar terapeuta?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción no se puede deshacer. Se eliminará permanentemente el terapeuta{" "}
+                <strong>{deletingTherapist?.name}</strong> del sistema.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel 
+                disabled={deleteTherapistMutation.isPending}
+                data-testid="button-cancel-delete"
+              >
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deletingTherapist && deleteTherapistMutation.mutate(deletingTherapist.id)}
+                disabled={deleteTherapistMutation.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-confirm-delete"
+              >
+                {deleteTherapistMutation.isPending ? "Eliminando..." : "Eliminar"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       {isLoading ? (
@@ -99,6 +177,26 @@ export default function Therapists() {
                   </div>
                 )}
               </CardContent>
+              <CardFooter className="flex justify-end gap-2 pt-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingTherapist(therapist)}
+                  data-testid={`button-edit-therapist-${therapist.id}`}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeletingTherapist(therapist)}
+                  data-testid={`button-delete-therapist-${therapist.id}`}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Eliminar
+                </Button>
+              </CardFooter>
             </Card>
           ))}
         </div>

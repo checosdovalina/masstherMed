@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { insertTherapistSchema, type InsertTherapist } from "@shared/schema";
+import { insertTherapistSchema, type InsertTherapist, type Therapist } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,44 +17,66 @@ import {
   FormDescription,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface TherapistFormProps {
+  therapist?: Therapist;
   onSuccess?: () => void;
 }
 
-export function TherapistForm({ onSuccess }: TherapistFormProps) {
+export function TherapistForm({ therapist, onSuccess }: TherapistFormProps) {
   const { toast } = useToast();
+  const isEditing = !!therapist;
   const [specialtyInput, setSpecialtyInput] = useState("");
-  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [specialties, setSpecialties] = useState<string[]>(therapist?.specialties || []);
 
   const form = useForm<InsertTherapist>({
     resolver: zodResolver(insertTherapistSchema),
     defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-      specialties: [],
-      avatarInitials: "",
+      name: therapist?.name || "",
+      email: therapist?.email || "",
+      phone: therapist?.phone || "",
+      specialties: therapist?.specialties || [],
+      avatarInitials: therapist?.avatarInitials || "",
     },
   });
 
-  const createTherapistMutation = useMutation({
+  useEffect(() => {
+    if (therapist) {
+      form.reset({
+        name: therapist.name,
+        email: therapist.email,
+        phone: therapist.phone || "",
+        specialties: therapist.specialties || [],
+        avatarInitials: therapist.avatarInitials,
+      });
+      setSpecialties(therapist.specialties || []);
+    }
+  }, [therapist, form]);
+
+  const saveTherapistMutation = useMutation({
     mutationFn: async (data: InsertTherapist) => {
+      if (isEditing) {
+        return await apiRequest("PATCH", `/api/therapists/${therapist.id}`, data);
+      }
       return await apiRequest("POST", "/api/therapists", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/therapists"] });
       toast({
-        title: "Terapeuta registrado",
-        description: "El terapeuta ha sido registrado exitosamente.",
+        title: isEditing ? "Terapeuta actualizado" : "Terapeuta registrado",
+        description: isEditing 
+          ? "Los cambios se han guardado exitosamente."
+          : "El terapeuta ha sido registrado exitosamente.",
       });
       onSuccess?.();
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "No se pudo registrar el terapeuta. Intenta nuevamente.",
+        description: isEditing 
+          ? "No se pudo actualizar el terapeuta. Intenta nuevamente."
+          : "No se pudo registrar el terapeuta. Intenta nuevamente.",
         variant: "destructive",
       });
     },
@@ -76,7 +98,7 @@ export function TherapistForm({ onSuccess }: TherapistFormProps) {
   };
 
   function onSubmit(data: InsertTherapist) {
-    createTherapistMutation.mutate(data);
+    saveTherapistMutation.mutate(data);
   }
 
   return (
@@ -181,8 +203,8 @@ export function TherapistForm({ onSuccess }: TherapistFormProps) {
         </div>
 
         <div className="flex justify-end gap-2 pt-4">
-          <Button type="submit" disabled={createTherapistMutation.isPending} data-testid="button-submit-therapist">
-            {createTherapistMutation.isPending ? "Guardando..." : "Registrar Terapeuta"}
+          <Button type="submit" disabled={saveTherapistMutation.isPending} data-testid="button-submit-therapist">
+            {saveTherapistMutation.isPending ? "Guardando..." : (isEditing ? "Guardar Cambios" : "Registrar Terapeuta")}
           </Button>
         </div>
       </form>

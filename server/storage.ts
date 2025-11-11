@@ -17,6 +17,8 @@ export interface IStorage {
   getTherapists(): Promise<Therapist[]>;
   getTherapist(id: string): Promise<Therapist | undefined>;
   createTherapist(therapist: InsertTherapist): Promise<Therapist>;
+  updateTherapist(id: string, therapist: Partial<InsertTherapist>): Promise<Therapist | undefined>;
+  deleteTherapist(id: string): Promise<boolean>;
   
   getPatients(): Promise<Patient[]>;
   getPatient(id: string): Promise<Patient | undefined>;
@@ -158,6 +160,19 @@ export class MemStorage implements IStorage {
 
   async createTherapist(therapist: InsertTherapist): Promise<Therapist> {
     return this.createTherapistSync(therapist);
+  }
+
+  async updateTherapist(id: string, updates: Partial<InsertTherapist>): Promise<Therapist | undefined> {
+    const therapist = this.therapists.get(id);
+    if (!therapist) return undefined;
+    
+    const updatedTherapist = { ...therapist, ...updates };
+    this.therapists.set(id, updatedTherapist);
+    return updatedTherapist;
+  }
+
+  async deleteTherapist(id: string): Promise<boolean> {
+    return this.therapists.delete(id);
   }
 
   async getPatients(): Promise<Patient[]> {

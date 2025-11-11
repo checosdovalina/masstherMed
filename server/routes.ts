@@ -136,6 +136,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/therapists/:id", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertTherapistSchema.partial().parse(req.body);
+      const therapist = await storage.updateTherapist(req.params.id, validatedData);
+      if (!therapist) {
+        return res.status(404).json({ error: "Terapeuta no encontrado" });
+      }
+      res.json(therapist);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de terapeuta inválidos" });
+    }
+  });
+
+  app.delete("/api/therapists/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteTherapist(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Terapeuta no encontrado" });
+      }
+      res.json({ message: "Terapeuta eliminado exitosamente" });
+    } catch (error) {
+      res.status(500).json({ error: "Error al eliminar terapeuta" });
+    }
+  });
+
   app.get("/api/patients", requireAuth, async (req, res) => {
     try {
       const patients = await storage.getPatients();
