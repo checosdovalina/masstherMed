@@ -64,7 +64,7 @@ export default function Login() {
                     <FormLabel>Email</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="admin@terapiaclinic.com" 
+                        placeholder="admin@massthermed.com" 
                         {...field}
                         data-testid="input-email"
                         disabled={isLoading}

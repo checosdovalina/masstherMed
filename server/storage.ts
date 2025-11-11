@@ -84,25 +84,25 @@ export class MemStorage implements IStorage {
 
     this.createTherapistSync({
       name: "Dra. María González",
-      email: "maria.gonzalez@terapiaclinic.com",
+      email: "maria.gonzalez@massthermed.com",
       phone: "+52 555 123 4567",
-      specialties: ["Terapia Física", "Rehabilitación"],
+      specialties: ["Masaje Terapéutico", "Masaje Deportivo"],
       avatarInitials: "MG"
     });
 
     this.createTherapistSync({
       name: "Dr. Carlos Ruiz",
-      email: "carlos.ruiz@terapiaclinic.com",
+      email: "carlos.ruiz@massthermed.com",
       phone: "+52 555 234 5678",
-      specialties: ["Terapia Ocupacional", "Pediatría"],
+      specialties: ["Masaje de Tejido Profundo", "Rehabilitación"],
       avatarInitials: "CR"
     });
 
     this.createTherapistSync({
       name: "Lic. Ana Martínez",
-      email: "ana.martinez@terapiaclinic.com",
+      email: "ana.martinez@massthermed.com",
       phone: "+52 555 345 6789",
-      specialties: ["Terapia del Lenguaje", "Foniatría"],
+      specialties: ["Masaje de Relajación", "Aromaterapia"],
       avatarInitials: "AM"
     });
 
