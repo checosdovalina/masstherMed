@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -67,8 +67,8 @@ export const protocols = pgTable("protocols", {
   name: text("name").notNull(),
   description: text("description"),
   objectives: text("objectives"),
-  totalSessions: text("total_sessions").notNull(),
-  completedSessions: text("completed_sessions").notNull().default("0"),
+  totalSessions: integer("total_sessions").notNull(),
+  completedSessions: integer("completed_sessions").notNull().default(0),
   status: text("status").notNull().default("active"),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
@@ -111,6 +111,10 @@ export const insertSessionSchema = createInsertSchema(sessions).omit({
 export const insertProtocolSchema = createInsertSchema(protocols).omit({
   id: true,
   createdAt: true,
+}).extend({
+  status: z.enum(["active", "completed", "cancelled"]).default("active"),
+  totalSessions: z.number().int().min(1, "Debe tener al menos 1 sesión"),
+  completedSessions: z.number().int().min(0, "No puede ser negativo").default(0),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

@@ -340,6 +340,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
       };
       const validatedData = insertProtocolSchema.parse(parsedBody);
+      
+      if (validatedData.completedSessions > validatedData.totalSessions) {
+        return res.status(400).json({ error: "Las sesiones completadas no pueden exceder el total de sesiones" });
+      }
+      
+      if (validatedData.endDate && validatedData.endDate < validatedData.startDate) {
+        return res.status(400).json({ error: "La fecha de finalización debe ser posterior a la fecha de inicio" });
+      }
+      
       const protocol = await storage.createProtocol(validatedData);
       res.status(201).json(protocol);
     } catch (error) {
@@ -363,10 +372,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Debe proporcionar al menos un campo para actualizar" });
       }
       
-      const protocol = await storage.updateProtocol(req.params.id, validatedData);
-      if (!protocol) {
+      const existingProtocol = await storage.getProtocol(req.params.id);
+      if (!existingProtocol) {
         return res.status(404).json({ error: "Protocolo no encontrado" });
       }
+      
+      const mergedData = { ...existingProtocol, ...validatedData };
+      
+      if (mergedData.completedSessions > mergedData.totalSessions) {
+        return res.status(400).json({ error: "Las sesiones completadas no pueden exceder el total de sesiones" });
+      }
+      
+      if (mergedData.endDate && mergedData.endDate < mergedData.startDate) {
+        return res.status(400).json({ error: "La fecha de finalización debe ser posterior a la fecha de inicio" });
+      }
+      
+      const protocol = await storage.updateProtocol(req.params.id, validatedData);
       res.json(protocol);
     } catch (error) {
       res.status(400).json({ error: "Datos de protocolo inválidos" });

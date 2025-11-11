@@ -28,7 +28,26 @@ interface ProtocolFormProps {
 const formSchema = insertProtocolSchema.extend({
   startDate: z.string().min(1, "La fecha de inicio es requerida"),
   endDate: z.string().optional(),
-});
+}).refine(
+  (data) => {
+    if (data.endDate && data.startDate) {
+      return new Date(data.endDate) >= new Date(data.startDate);
+    }
+    return true;
+  },
+  {
+    message: "La fecha de finalización debe ser posterior a la fecha de inicio",
+    path: ["endDate"],
+  }
+).refine(
+  (data) => {
+    return data.completedSessions <= data.totalSessions;
+  },
+  {
+    message: "Las sesiones completadas no pueden exceder el total de sesiones",
+    path: ["completedSessions"],
+  }
+);
 
 type FormData = z.infer<typeof formSchema>;
 
@@ -50,11 +69,11 @@ export function ProtocolForm({ protocol, patientId, onSuccess }: ProtocolFormPro
       patientId: patientId || protocol?.patientId || "",
       therapyTypeId: protocol?.therapyTypeId || "",
       name: protocol?.name || "",
-      description: protocol?.description || "",
-      objectives: protocol?.objectives || "",
-      totalSessions: protocol?.totalSessions || "",
-      completedSessions: protocol?.completedSessions || "0",
-      status: protocol?.status || "active",
+      description: protocol?.description ?? "",
+      objectives: protocol?.objectives ?? "",
+      totalSessions: protocol?.totalSessions || 10,
+      completedSessions: protocol?.completedSessions || 0,
+      status: (protocol?.status as "active" | "completed" | "cancelled") || "active",
       startDate: protocol?.startDate 
         ? new Date(protocol.startDate).toISOString().split('T')[0] 
         : "",
@@ -237,10 +256,15 @@ export function ProtocolForm({ protocol, patientId, onSuccess }: ProtocolFormPro
                     type="number"
                     min="1"
                     placeholder="10"
-                    {...field} 
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                    value={field.value}
                     data-testid="input-protocol-total-sessions"
                   />
                 </FormControl>
+                <FormDescription>
+                  Número total de sesiones planificadas en este protocolo
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -257,10 +281,15 @@ export function ProtocolForm({ protocol, patientId, onSuccess }: ProtocolFormPro
                     type="number"
                     min="0"
                     placeholder="0"
-                    {...field} 
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                    value={field.value}
                     data-testid="input-protocol-completed-sessions"
                   />
                 </FormControl>
+                <FormDescription>
+                  Sesiones ya realizadas del protocolo
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
