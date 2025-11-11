@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
@@ -6,11 +6,65 @@ import {
   insertTherapistSchema,
   insertPatientSchema,
   insertAppointmentSchema,
-  insertSessionSchema
+  insertSessionSchema,
+  loginSchema
 } from "@shared/schema";
 
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "No autorizado" });
+  }
+  next();
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  app.get("/api/therapy-types", async (req, res) => {
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = loginSchema.parse(req.body);
+      const user = await storage.verifyPassword(email, password);
+      
+      if (!user) {
+        return res.status(401).json({ error: "Email o contraseña incorrectos" });
+      }
+
+      req.session.userId = user.id;
+      
+      const { passwordHash, ...userWithoutPassword } = user;
+      res.json({ user: userWithoutPassword });
+    } catch (error) {
+      res.status(400).json({ error: "Datos de inicio de sesión inválidos" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Error al cerrar sesión" });
+      }
+      res.clearCookie('connect.sid');
+      res.json({ message: "Sesión cerrada exitosamente" });
+    });
+  });
+
+  app.get("/api/auth/session", async (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ error: "No autenticado" });
+    }
+
+    try {
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        return res.status(401).json({ error: "Usuario no encontrado" });
+      }
+
+      const { passwordHash, ...userWithoutPassword } = user;
+      res.json({ user: userWithoutPassword });
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener la sesión" });
+    }
+  });
+
+  app.get("/api/therapy-types", requireAuth, async (req, res) => {
     try {
       const therapyTypes = await storage.getTherapyTypes();
       res.json(therapyTypes);
@@ -19,7 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/therapy-types/:id", async (req, res) => {
+  app.get("/api/therapy-types/:id", requireAuth, async (req, res) => {
     try {
       const therapyType = await storage.getTherapyType(req.params.id);
       if (!therapyType) {
@@ -31,7 +85,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/therapy-types", async (req, res) => {
+  app.post("/api/therapy-types", requireAuth, async (req, res) => {
     try {
       const validatedData = insertTherapyTypeSchema.parse(req.body);
       const therapyType = await storage.createTherapyType(validatedData);
@@ -41,7 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/therapists", async (req, res) => {
+  app.get("/api/therapists", requireAuth, async (req, res) => {
     try {
       const therapists = await storage.getTherapists();
       res.json(therapists);
@@ -50,7 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/therapists/:id", async (req, res) => {
+  app.get("/api/therapists/:id", requireAuth, async (req, res) => {
     try {
       const therapist = await storage.getTherapist(req.params.id);
       if (!therapist) {
@@ -62,7 +116,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/therapists", async (req, res) => {
+  app.post("/api/therapists", requireAuth, async (req, res) => {
     try {
       const validatedData = insertTherapistSchema.parse(req.body);
       const therapist = await storage.createTherapist(validatedData);
@@ -72,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/patients", async (req, res) => {
+  app.get("/api/patients", requireAuth, async (req, res) => {
     try {
       const patients = await storage.getPatients();
       res.json(patients);
@@ -81,7 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/patients/:id", async (req, res) => {
+  app.get("/api/patients/:id", requireAuth, async (req, res) => {
     try {
       const patient = await storage.getPatient(req.params.id);
       if (!patient) {
@@ -93,7 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/patients", async (req, res) => {
+  app.post("/api/patients", requireAuth, async (req, res) => {
     try {
       const validatedData = insertPatientSchema.parse(req.body);
       const patient = await storage.createPatient(validatedData);
@@ -103,7 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/patients/:id", async (req, res) => {
+  app.patch("/api/patients/:id", requireAuth, async (req, res) => {
     try {
       const validatedData = insertPatientSchema.partial().parse(req.body);
       const patient = await storage.updatePatient(req.params.id, validatedData);
@@ -116,7 +170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/appointments", async (req, res) => {
+  app.get("/api/appointments", requireAuth, async (req, res) => {
     try {
       const appointments = await storage.getAppointments();
       res.json(appointments);
@@ -125,7 +179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/appointments/:id", async (req, res) => {
+  app.get("/api/appointments/:id", requireAuth, async (req, res) => {
     try {
       const appointment = await storage.getAppointment(req.params.id);
       if (!appointment) {
@@ -137,7 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/appointments", async (req, res) => {
+  app.post("/api/appointments", requireAuth, async (req, res) => {
     try {
       const parsedBody = {
         ...req.body,
@@ -152,7 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/sessions", async (req, res) => {
+  app.get("/api/sessions", requireAuth, async (req, res) => {
     try {
       const sessions = await storage.getSessions();
       res.json(sessions);
@@ -161,7 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/sessions/:id", async (req, res) => {
+  app.get("/api/sessions/:id", requireAuth, async (req, res) => {
     try {
       const session = await storage.getSession(req.params.id);
       if (!session) {
@@ -173,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/sessions", async (req, res) => {
+  app.post("/api/sessions", requireAuth, async (req, res) => {
     try {
       const parsedBody = {
         ...req.body,
