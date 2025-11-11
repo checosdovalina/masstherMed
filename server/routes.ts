@@ -1,13 +1,191 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { 
+  insertTherapyTypeSchema,
+  insertTherapistSchema,
+  insertPatientSchema,
+  insertAppointmentSchema,
+  insertSessionSchema
+} from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  app.get("/api/therapy-types", async (req, res) => {
+    try {
+      const therapyTypes = await storage.getTherapyTypes();
+      res.json(therapyTypes);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch therapy types" });
+    }
+  });
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  app.get("/api/therapy-types/:id", async (req, res) => {
+    try {
+      const therapyType = await storage.getTherapyType(req.params.id);
+      if (!therapyType) {
+        return res.status(404).json({ error: "Therapy type not found" });
+      }
+      res.json(therapyType);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch therapy type" });
+    }
+  });
+
+  app.post("/api/therapy-types", async (req, res) => {
+    try {
+      const validatedData = insertTherapyTypeSchema.parse(req.body);
+      const therapyType = await storage.createTherapyType(validatedData);
+      res.status(201).json(therapyType);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid therapy type data" });
+    }
+  });
+
+  app.get("/api/therapists", async (req, res) => {
+    try {
+      const therapists = await storage.getTherapists();
+      res.json(therapists);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch therapists" });
+    }
+  });
+
+  app.get("/api/therapists/:id", async (req, res) => {
+    try {
+      const therapist = await storage.getTherapist(req.params.id);
+      if (!therapist) {
+        return res.status(404).json({ error: "Therapist not found" });
+      }
+      res.json(therapist);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch therapist" });
+    }
+  });
+
+  app.post("/api/therapists", async (req, res) => {
+    try {
+      const validatedData = insertTherapistSchema.parse(req.body);
+      const therapist = await storage.createTherapist(validatedData);
+      res.status(201).json(therapist);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid therapist data" });
+    }
+  });
+
+  app.get("/api/patients", async (req, res) => {
+    try {
+      const patients = await storage.getPatients();
+      res.json(patients);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch patients" });
+    }
+  });
+
+  app.get("/api/patients/:id", async (req, res) => {
+    try {
+      const patient = await storage.getPatient(req.params.id);
+      if (!patient) {
+        return res.status(404).json({ error: "Patient not found" });
+      }
+      res.json(patient);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch patient" });
+    }
+  });
+
+  app.post("/api/patients", async (req, res) => {
+    try {
+      const validatedData = insertPatientSchema.parse(req.body);
+      const patient = await storage.createPatient(validatedData);
+      res.status(201).json(patient);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid patient data" });
+    }
+  });
+
+  app.patch("/api/patients/:id", async (req, res) => {
+    try {
+      const validatedData = insertPatientSchema.partial().parse(req.body);
+      const patient = await storage.updatePatient(req.params.id, validatedData);
+      if (!patient) {
+        return res.status(404).json({ error: "Patient not found" });
+      }
+      res.json(patient);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid patient data" });
+    }
+  });
+
+  app.get("/api/appointments", async (req, res) => {
+    try {
+      const appointments = await storage.getAppointments();
+      res.json(appointments);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch appointments" });
+    }
+  });
+
+  app.get("/api/appointments/:id", async (req, res) => {
+    try {
+      const appointment = await storage.getAppointment(req.params.id);
+      if (!appointment) {
+        return res.status(404).json({ error: "Appointment not found" });
+      }
+      res.json(appointment);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch appointment" });
+    }
+  });
+
+  app.post("/api/appointments", async (req, res) => {
+    try {
+      const parsedBody = {
+        ...req.body,
+        startTime: new Date(req.body.startTime),
+        endTime: new Date(req.body.endTime),
+      };
+      const validatedData = insertAppointmentSchema.parse(parsedBody);
+      const appointment = await storage.createAppointment(validatedData);
+      res.status(201).json(appointment);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid appointment data" });
+    }
+  });
+
+  app.get("/api/sessions", async (req, res) => {
+    try {
+      const sessions = await storage.getSessions();
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  });
+
+  app.get("/api/sessions/:id", async (req, res) => {
+    try {
+      const session = await storage.getSession(req.params.id);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      res.json(session);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch session" });
+    }
+  });
+
+  app.post("/api/sessions", async (req, res) => {
+    try {
+      const parsedBody = {
+        ...req.body,
+        sessionDate: new Date(req.body.sessionDate),
+      };
+      const validatedData = insertSessionSchema.parse(parsedBody);
+      const session = await storage.createSession(validatedData);
+      res.status(201).json(session);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid session data" });
+    }
+  });
 
   const httpServer = createServer(app);
 
