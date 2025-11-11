@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, Users, Calendar, Heart, ArrowRight } from "lucide-react";
+import logoHorizontal from "@assets/MM_Logo_Horizontal_Color_RGB_1762825081671.png";
 
 export default function Landing() {
   return (
@@ -10,13 +11,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">TC</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">TerapiaClinic</h1>
-                <p className="text-xs text-muted-foreground">Centro de Terapias Profesional</p>
-              </div>
+              <img src={logoHorizontal} alt="Massther Med" className="h-10" />
             </div>
             <Link href="/dashboard" data-testid="link-dashboard-nav">
               <Button data-testid="button-login">
@@ -32,11 +27,11 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="text-4xl font-bold mb-4">
-              Bienvenido a TerapiaClinic
+              Bienvenido a Massther Med°
             </h2>
             <p className="text-xl text-muted-foreground">
-              Centro especializado en terapias físicas, ocupacionales, del lenguaje y psicológicas. 
-              Comprometidos con tu bienestar y recuperación.
+              Centro especializado en masajes terapéuticos profesionales. 
+              Comprometidos con tu bienestar, salud y recuperación física.
             </p>
           </div>
 
@@ -106,29 +101,29 @@ export default function Landing() {
                   <li className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
                     <div>
-                      <strong className="font-semibold">Terapia Física:</strong>
-                      <span className="text-muted-foreground"> Rehabilitación y mejora de la movilidad</span>
+                      <strong className="font-semibold">Masaje Terapéutico:</strong>
+                      <span className="text-muted-foreground"> Tratamiento especializado para alivio del dolor y recuperación muscular</span>
                     </div>
                   </li>
                   <li className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
                     <div>
-                      <strong className="font-semibold">Terapia Ocupacional:</strong>
-                      <span className="text-muted-foreground"> Desarrollo de habilidades para actividades diarias</span>
+                      <strong className="font-semibold">Masaje Deportivo:</strong>
+                      <span className="text-muted-foreground"> Prevención de lesiones y mejora del rendimiento atlético</span>
                     </div>
                   </li>
                   <li className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
                     <div>
-                      <strong className="font-semibold">Terapia del Lenguaje:</strong>
-                      <span className="text-muted-foreground"> Mejora de comunicación y habla</span>
+                      <strong className="font-semibold">Masaje de Relajación:</strong>
+                      <span className="text-muted-foreground"> Reducción de estrés y tensión muscular</span>
                     </div>
                   </li>
                   <li className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
                     <div>
-                      <strong className="font-semibold">Terapia Psicológica:</strong>
-                      <span className="text-muted-foreground"> Apoyo emocional y salud mental</span>
+                      <strong className="font-semibold">Masaje de Tejido Profundo:</strong>
+                      <span className="text-muted-foreground"> Tratamiento de dolencias crónicas y contracturas musculares</span>
                     </div>
                   </li>
                 </ul>
@@ -152,8 +147,8 @@ export default function Landing() {
 
       <footer className="border-t py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center text-sm text-muted-foreground">
-          <p>© 2025 TerapiaClinic. Todos los derechos reservados.</p>
-          <p className="mt-2">Centro de Terapias Profesional</p>
+          <p>© 2025 Massther Med°. Todos los derechos reservados.</p>
+          <p className="mt-2">Therapeutic Massage Center</p>
         </div>
       </footer>
     </div>

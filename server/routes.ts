@@ -10,11 +10,21 @@ import {
   loginSchema
 } from "@shared/schema";
 
-function requireAuth(req: Request, res: Response, next: NextFunction) {
+async function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) {
     return res.status(401).json({ error: "No autorizado" });
   }
-  next();
+  
+  try {
+    const user = await storage.getUser(req.session.userId);
+    if (!user) {
+      req.session.destroy(() => {});
+      return res.status(401).json({ error: "Usuario no encontrado" });
+    }
+    next();
+  } catch (error) {
+    return res.status(500).json({ error: "Error al verificar autenticación" });
+  }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -41,7 +51,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (err) {
         return res.status(500).json({ error: "Error al cerrar sesión" });
       }
-      res.clearCookie('connect.sid');
+      res.clearCookie('connect.sid', { path: '/' });
       res.json({ message: "Sesión cerrada exitosamente" });
     });
   });

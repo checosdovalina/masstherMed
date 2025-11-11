@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
 import { Loader2 } from "lucide-react";
+import logoVertical from "@assets/MM_LogoVertical_Color_RGB_1762825081672.png";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -34,7 +35,7 @@ export default function Login() {
       toast({
         variant: "destructive",
         title: "Error al iniciar sesión",
-        description: error.message || "Email o contraseña incorrectos",
+        description: error?.message || "Email o contraseña incorrectos",
       });
     } finally {
       setIsLoading(false);
@@ -45,14 +46,8 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">TC</span>
-            </div>
-            <div className="text-left">
-              <CardTitle className="text-2xl">TerapiaClinic</CardTitle>
-              <p className="text-xs text-muted-foreground">Sistema de Gestión</p>
-            </div>
+          <div className="flex justify-center mb-4">
+            <img src={logoVertical} alt="Massther Med" className="h-32" />
           </div>
           <CardDescription>
             Ingresa tus credenciales para acceder al sistema
@@ -118,7 +113,7 @@ export default function Login() {
 
           <div className="mt-6 p-4 bg-muted/50 rounded-md text-sm">
             <p className="font-medium mb-1">Credenciales de prueba:</p>
-            <p className="text-muted-foreground">Email: admin@terapiaclinic.com</p>
+            <p className="text-muted-foreground">Email: admin@massthermed.com</p>
             <p className="text-muted-foreground">Contraseña: admin123</p>
           </div>
         </CardContent>

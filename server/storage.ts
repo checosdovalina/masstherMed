@@ -108,7 +108,7 @@ export class MemStorage implements IStorage {
 
     const adminPasswordHash = bcrypt.hashSync("admin123", 10);
     this.createUserSync({
-      email: "admin@terapiaclinic.com",
+      email: "admin@massthermed.com",
       passwordHash: adminPasswordHash,
       name: "Administrador",
       role: "admin"
@@ -241,7 +241,9 @@ export class MemStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    return this.createUserSync(insertUser);
+    const hashedPassword = await bcrypt.hash(insertUser.passwordHash, 10);
+    const userWithHashedPassword = { ...insertUser, passwordHash: hashedPassword };
+    return this.createUserSync(userWithHashedPassword);
   }
 
   async verifyPassword(email: string, password: string): Promise<User | null> {

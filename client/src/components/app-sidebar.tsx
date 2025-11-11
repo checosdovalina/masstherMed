@@ -1,5 +1,6 @@
 import { Calendar, Users, UserCog, LayoutDashboard, FileText } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import logoHorizontal from "@assets/MM_Logo_Horizontal_Color_RGB_1762825081671.png";
 import {
   Sidebar,
   SidebarContent,
@@ -51,14 +52,8 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">TC</span>
-          </div>
-          <div>
-            <h2 className="text-base font-semibold">TerapiaClinic</h2>
-            <p className="text-xs text-muted-foreground">Sistema de Gestión</p>
-          </div>
+        <div className="flex items-center justify-center">
+          <img src={logoHorizontal} alt="Massther Med" className="h-10" />
         </div>
       </SidebarHeader>
       <SidebarContent>

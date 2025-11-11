@@ -40,8 +40,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginCredentials) => {
-      const res = await apiRequest("POST", "/api/auth/login", credentials);
-      return res.json();
+      try {
+        const res = await apiRequest("POST", "/api/auth/login", credentials);
+        const data = await res.json();
+        return data;
+      } catch (error: any) {
+        if (error instanceof Error && error.message) {
+          const match = error.message.match(/\d+:\s*(.+)/);
+          if (match && match[1]) {
+            try {
+              const errorData = JSON.parse(match[1]);
+              throw new Error(errorData.error || "Error al iniciar sesión");
+            } catch (parseError) {
+              throw new Error(match[1]);
+            }
+          }
+        }
+        throw error;
+      }
     },
     onSuccess: (data) => {
       setUser(data.user);
@@ -55,7 +71,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     onSuccess: () => {
       setUser(null);
-      queryClient.clear();
+      queryClient.removeQueries({ queryKey: ["/api/auth/session"] });
+      queryClient.removeQueries({ queryKey: ["/api/therapy-types"] });
+      queryClient.removeQueries({ queryKey: ["/api/therapists"] });
+      queryClient.removeQueries({ queryKey: ["/api/patients"] });
+      queryClient.removeQueries({ queryKey: ["/api/appointments"] });
+      queryClient.removeQueries({ queryKey: ["/api/sessions"] });
     },
   });
 
