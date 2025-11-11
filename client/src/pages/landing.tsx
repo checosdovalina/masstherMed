@@ -18,7 +18,7 @@ export default function Landing() {
                 <p className="text-xs text-muted-foreground">Centro de Terapias Profesional</p>
               </div>
             </div>
-            <Link href="/dashboard">
+            <Link href="/dashboard" data-testid="link-dashboard-nav">
               <Button data-testid="button-login">
                 Acceder al Sistema
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -138,7 +138,7 @@ export default function Landing() {
                 <p className="text-muted-foreground mb-6">
                   Profesionales de la salud pueden acceder al sistema de gestión para administrar pacientes, citas y expedientes clínicos.
                 </p>
-                <Link href="/dashboard">
+                <Link href="/dashboard" data-testid="link-dashboard-cta">
                   <Button size="lg" className="w-full" data-testid="button-access-system">
                     Ingresar al Sistema
                     <ArrowRight className="ml-2 h-5 w-5" />
