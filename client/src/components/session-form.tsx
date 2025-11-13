@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { insertSessionSchema, type InsertSession, type Patient, type Therapist, type TherapyType, type Protocol } from "@shared/schema";
+import { insertSessionSchema, type InsertSession, type Patient, type Therapist, type TherapyType, type ProtocolAssignment } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,14 @@ import { useMemo, useEffect } from "react";
 interface SessionFormProps {
   onSuccess?: () => void;
 }
+
+type ProtocolAssignmentWithProtocol = ProtocolAssignment & {
+  protocol: {
+    name: string;
+    totalSessions: number;
+    therapyTypeId: string;
+  } | null;
+};
 
 const formSchema = insertSessionSchema.extend({
   sessionDate: z.string().min(1, "La fecha es requerida"),
@@ -46,17 +54,13 @@ export function SessionForm({ onSuccess }: SessionFormProps) {
     queryKey: ["/api/therapy-types"],
   });
 
-  const { data: protocols } = useQuery<Protocol[]>({
-    queryKey: ["/api/protocols"],
-  });
-
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       patientId: "",
       therapistId: "",
       therapyTypeId: "",
-      protocolId: "",
+      protocolAssignmentId: "",
       sessionDate: "",
       sessionTime: "",
       duration: "",
@@ -69,35 +73,40 @@ export function SessionForm({ onSuccess }: SessionFormProps) {
   const selectedPatientId = form.watch("patientId");
   const selectedTherapyTypeId = form.watch("therapyTypeId");
 
-  const activeProtocolsForPatient = useMemo(() => {
-    if (!selectedPatientId || !protocols) return [];
+  const { data: protocolAssignments } = useQuery<ProtocolAssignmentWithProtocol[]>({
+    queryKey: ["/api/protocol-assignments/patient", selectedPatientId],
+    enabled: !!selectedPatientId,
+  });
+
+  const activeProtocolAssignmentsForPatient = useMemo(() => {
+    if (!protocolAssignments) return [];
     
-    let filtered = protocols.filter(
-      (p) => p.patientId === selectedPatientId && p.status === "active"
+    let filtered = protocolAssignments.filter(
+      (a) => a.status === "active" && a.protocol !== null
     );
     
     if (selectedTherapyTypeId) {
-      filtered = filtered.filter(p => p.therapyTypeId === selectedTherapyTypeId);
+      filtered = filtered.filter(a => a.protocol?.therapyTypeId === selectedTherapyTypeId);
     }
     
-    filtered = filtered.filter(p => p.completedSessions < p.totalSessions);
+    filtered = filtered.filter(a => a.completedSessions < (a.protocol?.totalSessions || 0));
     
     return filtered;
-  }, [selectedPatientId, selectedTherapyTypeId, protocols]);
+  }, [selectedTherapyTypeId, protocolAssignments]);
 
   useEffect(() => {
-    form.resetField("protocolId");
+    form.resetField("protocolAssignmentId");
   }, [selectedPatientId, selectedTherapyTypeId, form]);
 
   const createSessionMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const { sessionDate, sessionTime, protocolId, ...rest } = data;
+      const { sessionDate, sessionTime, protocolAssignmentId, ...rest } = data;
       
       const dateTime = new Date(`${sessionDate}T${sessionTime}`);
       
       const sessionData: InsertSession = {
         ...rest,
-        protocolId: protocolId || undefined,
+        protocolAssignmentId: protocolAssignmentId || undefined,
         sessionDate: dateTime,
       };
       
@@ -105,7 +114,10 @@ export function SessionForm({ onSuccess }: SessionFormProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/protocols"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/protocol-assignments"] });
+      if (selectedPatientId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/protocol-assignments/patient", selectedPatientId] });
+      }
       toast({
         title: "Sesión registrada",
         description: "La sesión ha sido registrada exitosamente.",
@@ -275,7 +287,7 @@ export function SessionForm({ onSuccess }: SessionFormProps) {
 
           <FormField
             control={form.control}
-            name="protocolId"
+            name="protocolAssignmentId"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Protocolo (Opcional)</FormLabel>
@@ -291,7 +303,7 @@ export function SessionForm({ onSuccess }: SessionFormProps) {
                           ? "Primero selecciona un paciente"
                           : !selectedTherapyTypeId
                           ? "Selecciona tipo de terapia primero"
-                          : activeProtocolsForPatient.length === 0
+                          : activeProtocolAssignmentsForPatient.length === 0
                           ? "Sin protocolos disponibles"
                           : "Selecciona un protocolo"
                       } />
@@ -299,9 +311,9 @@ export function SessionForm({ onSuccess }: SessionFormProps) {
                   </FormControl>
                   <SelectContent>
                     <SelectItem value="">Sin protocolo</SelectItem>
-                    {activeProtocolsForPatient.map((protocol) => (
-                      <SelectItem key={protocol.id} value={protocol.id}>
-                        {protocol.name} ({protocol.completedSessions}/{protocol.totalSessions})
+                    {activeProtocolAssignmentsForPatient.map((assignment) => (
+                      <SelectItem key={assignment.id} value={assignment.id}>
+                        {assignment.protocol?.name} ({assignment.completedSessions}/{assignment.protocol?.totalSessions})
                       </SelectItem>
                     ))}
                   </SelectContent>

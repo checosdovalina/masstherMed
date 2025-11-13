@@ -346,10 +346,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (validatedData.protocolAssignmentId) {
         const assignment = await storage.getProtocolAssignment(validatedData.protocolAssignmentId);
         if (assignment) {
-          const newCompletedSessions = assignment.completedSessions + 1;
-          await storage.updateProtocolAssignment(validatedData.protocolAssignmentId, {
-            completedSessions: newCompletedSessions,
-          });
+          const protocol = await storage.getProtocol(assignment.protocolId);
+          if (protocol) {
+            const newCompletedSessions = assignment.completedSessions + 1;
+            const updates: any = {
+              completedSessions: newCompletedSessions,
+            };
+            
+            if (newCompletedSessions >= protocol.totalSessions) {
+              updates.status = "completed";
+            }
+            
+            await storage.updateProtocolAssignment(validatedData.protocolAssignmentId, updates);
+          }
         }
       }
       
@@ -446,7 +455,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/protocol-assignments/patient/:patientId", requireAuth, async (req, res) => {
     try {
       const assignments = await storage.getProtocolAssignmentsByPatient(req.params.patientId);
-      res.json(assignments);
+      
+      const assignmentsWithProtocol = await Promise.all(
+        assignments.map(async (assignment) => {
+          const protocol = await storage.getProtocol(assignment.protocolId);
+          return {
+            ...assignment,
+            protocol: protocol ? {
+              name: protocol.name,
+              totalSessions: protocol.totalSessions,
+              therapyTypeId: protocol.therapyTypeId,
+            } : null,
+          };
+        })
+      );
+      
+      res.json(assignmentsWithProtocol);
     } catch (error) {
       res.status(500).json({ error: "Error al obtener asignaciones del paciente" });
     }
