@@ -67,7 +67,8 @@ Preferred communication style: Simple, everyday language.
 - **therapists**: Staff members with specialties and contact info
 - **patients**: Patient records with demographics and emergency contacts
 - **appointments**: Scheduled therapy sessions with status tracking
-- **sessions**: Clinical session records with notes and observations
+- **sessions**: Clinical session records with notes and observations (optionally linked to protocols)
+- **protocols**: Treatment protocols with session tracking and progress monitoring
 - **users**: Authentication and user management
 
 **Key Design Decisions:**
@@ -76,6 +77,10 @@ Preferred communication style: Simple, everyday language.
 - Status enums for appointment and patient states
 - Array fields for therapist specialties (PostgreSQL native arrays)
 - Separate session and appointment tables for clinical vs scheduling concerns
+- Optional protocol linking: sessions can reference protocols for treatment tracking
+  - Backend validates protocol belongs to same patient and therapy type
+  - Auto-increments protocol's `completedSessions` when session is created with protocolId
+  - Only allows linking to active protocols with available session slots
 
 ### Authentication & Authorization
 
@@ -111,12 +116,15 @@ Preferred communication style: Simple, everyday language.
 - `/citas` - Appointment scheduling
 - `/terapeutas` - Therapist management
 - `/expedientes` - Clinical records/sessions
+- `/protocolos` - Treatment protocols module
+- `/servicios` - Therapy services catalog
 
 **API Endpoints:**
 - `/api/patients` - CRUD operations for patients
 - `/api/therapists` - CRUD operations for therapists
 - `/api/appointments` - CRUD operations for appointments
-- `/api/sessions` - CRUD operations for clinical sessions
+- `/api/sessions` - CRUD operations for clinical sessions (with optional protocol linking)
+- `/api/protocols` - CRUD operations for treatment protocols
 - `/api/therapy-types` - CRUD operations for therapy categories
 - `/api/auth/session` - Current session verification
 
