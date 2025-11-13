@@ -52,6 +52,7 @@ export const sessions = pgTable("sessions", {
   patientId: varchar("patient_id").notNull(),
   therapistId: varchar("therapist_id").notNull(),
   therapyTypeId: varchar("therapy_type_id").notNull(),
+  protocolId: varchar("protocol_id"),
   sessionDate: timestamp("session_date").notNull(),
   duration: text("duration").notNull(),
   notes: text("notes"),

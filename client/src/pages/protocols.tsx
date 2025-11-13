@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, ClipboardList, Edit, Trash2, Calendar } from "lucide-react";
+import { Plus, ClipboardList, Edit, Trash2, Calendar, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,11 +16,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
 import { ProtocolForm } from "@/components/protocol-form";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Protocol, Patient, TherapyType } from "@shared/schema";
+import type { Protocol, Patient, TherapyType, Session, Therapist } from "@shared/schema";
 
 export default function Protocols() {
   const [protocolDialogOpen, setProtocolDialogOpen] = useState(false);
@@ -39,6 +44,29 @@ export default function Protocols() {
   const { data: therapyTypes } = useQuery<TherapyType[]>({
     queryKey: ["/api/therapy-types"],
   });
+
+  const { data: sessions } = useQuery<Session[]>({
+    queryKey: ["/api/sessions"],
+  });
+
+  const { data: therapists } = useQuery<Therapist[]>({
+    queryKey: ["/api/therapists"],
+  });
+
+  const sessionsByProtocol = useMemo(() => {
+    if (!sessions) return new Map<string, Session[]>();
+    const map = new Map<string, Session[]>();
+    sessions.forEach((session) => {
+      if (session.protocolId) {
+        const existing = map.get(session.protocolId) || [];
+        map.set(session.protocolId, [...existing, session]);
+      }
+    });
+    map.forEach((sessions, protocolId) => {
+      sessions.sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime());
+    });
+    return map;
+  }, [sessions]);
 
   const deleteProtocolMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -242,6 +270,53 @@ export default function Protocols() {
                         {protocol.objectives}
                       </p>
                     </div>
+                  )}
+
+                  {sessionsByProtocol.get(protocol.id) && sessionsByProtocol.get(protocol.id)!.length > 0 && (
+                    <Collapsible>
+                      <CollapsibleTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full">
+                          <FileText className="h-4 w-4 mr-2" />
+                          Ver {sessionsByProtocol.get(protocol.id)!.length} sesiones vinculadas
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 mt-2">
+                        {sessionsByProtocol.get(protocol.id)!.map((session) => {
+                          const therapist = therapists?.find(t => t.id === session.therapistId);
+                          const sessionDate = new Date(session.sessionDate);
+                          return (
+                            <div 
+                              key={session.id} 
+                              className="p-2 border rounded-md text-sm bg-background"
+                              data-testid={`protocol-session-${session.id}`}
+                            >
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="flex-1">
+                                  <p className="font-medium">
+                                    {sessionDate.toLocaleDateString('es-ES', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric'
+                                    })}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {therapist?.name} • {session.duration}
+                                  </p>
+                                </div>
+                                <Badge variant="secondary" className="text-xs">
+                                  Sesión #{sessionsByProtocol.get(protocol.id)!.indexOf(session) + 1}
+                                </Badge>
+                              </div>
+                              {session.notes && (
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                  {session.notes}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </CollapsibleContent>
+                    </Collapsible>
                   )}
                 </CardContent>
               </Card>

@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { insertSessionSchema, type InsertSession, type Patient, type Therapist, type TherapyType } from "@shared/schema";
+import { insertSessionSchema, type InsertSession, type Patient, type Therapist, type TherapyType, type Protocol } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { useMemo, useEffect } from "react";
 
 interface SessionFormProps {
   onSuccess?: () => void;
@@ -44,12 +46,17 @@ export function SessionForm({ onSuccess }: SessionFormProps) {
     queryKey: ["/api/therapy-types"],
   });
 
+  const { data: protocols } = useQuery<Protocol[]>({
+    queryKey: ["/api/protocols"],
+  });
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       patientId: "",
       therapistId: "",
       therapyTypeId: "",
+      protocolId: "",
       sessionDate: "",
       sessionTime: "",
       duration: "",
@@ -59,14 +66,38 @@ export function SessionForm({ onSuccess }: SessionFormProps) {
     },
   });
 
+  const selectedPatientId = form.watch("patientId");
+  const selectedTherapyTypeId = form.watch("therapyTypeId");
+
+  const activeProtocolsForPatient = useMemo(() => {
+    if (!selectedPatientId || !protocols) return [];
+    
+    let filtered = protocols.filter(
+      (p) => p.patientId === selectedPatientId && p.status === "active"
+    );
+    
+    if (selectedTherapyTypeId) {
+      filtered = filtered.filter(p => p.therapyTypeId === selectedTherapyTypeId);
+    }
+    
+    filtered = filtered.filter(p => p.completedSessions < p.totalSessions);
+    
+    return filtered;
+  }, [selectedPatientId, selectedTherapyTypeId, protocols]);
+
+  useEffect(() => {
+    form.resetField("protocolId");
+  }, [selectedPatientId, selectedTherapyTypeId, form]);
+
   const createSessionMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const { sessionDate, sessionTime, ...rest } = data;
+      const { sessionDate, sessionTime, protocolId, ...rest } = data;
       
       const dateTime = new Date(`${sessionDate}T${sessionTime}`);
       
       const sessionData: InsertSession = {
         ...rest,
+        protocolId: protocolId || undefined,
         sessionDate: dateTime,
       };
       
@@ -74,16 +105,29 @@ export function SessionForm({ onSuccess }: SessionFormProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/protocols"] });
       toast({
         title: "Sesión registrada",
         description: "La sesión ha sido registrada exitosamente.",
       });
       onSuccess?.();
     },
-    onError: () => {
+    onError: (error: any) => {
+      let errorMessage = "No se pudo registrar la sesión. Intenta nuevamente.";
+      
+      try {
+        if (error?.response?.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (error?.message) {
+          errorMessage = error.message;
+        }
+      } catch (e) {
+        console.error("Error parsing error response:", e);
+      }
+      
       toast({
-        title: "Error",
-        description: "No se pudo registrar la sesión. Intenta nuevamente.",
+        title: "Error al registrar sesión",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -203,30 +247,73 @@ export function SessionForm({ onSuccess }: SessionFormProps) {
           />
         </div>
 
-        <FormField
-          control={form.control}
-          name="duration"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Duración</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger data-testid="select-duration">
-                    <SelectValue placeholder="Selecciona la duración" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="30 min">30 minutos</SelectItem>
-                  <SelectItem value="45 min">45 minutos</SelectItem>
-                  <SelectItem value="60 min">60 minutos</SelectItem>
-                  <SelectItem value="90 min">90 minutos</SelectItem>
-                  <SelectItem value="120 min">120 minutos</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="duration"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Duración</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-duration">
+                      <SelectValue placeholder="Selecciona la duración" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="30 min">30 minutos</SelectItem>
+                    <SelectItem value="45 min">45 minutos</SelectItem>
+                    <SelectItem value="60 min">60 minutos</SelectItem>
+                    <SelectItem value="90 min">90 minutos</SelectItem>
+                    <SelectItem value="120 min">120 minutos</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="protocolId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Protocolo (Opcional)</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
+                  value={field.value || ""}
+                  disabled={!selectedPatientId || !selectedTherapyTypeId}
+                >
+                  <FormControl>
+                    <SelectTrigger data-testid="select-protocol">
+                      <SelectValue placeholder={
+                        !selectedPatientId 
+                          ? "Primero selecciona un paciente"
+                          : !selectedTherapyTypeId
+                          ? "Selecciona tipo de terapia primero"
+                          : activeProtocolsForPatient.length === 0
+                          ? "Sin protocolos disponibles"
+                          : "Selecciona un protocolo"
+                      } />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="">Sin protocolo</SelectItem>
+                    {activeProtocolsForPatient.map((protocol) => (
+                      <SelectItem key={protocol.id} value={protocol.id}>
+                        {protocol.name} ({protocol.completedSessions}/{protocol.totalSessions})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription className="text-xs">
+                  Solo se muestran protocolos activos con el mismo tipo de terapia
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}

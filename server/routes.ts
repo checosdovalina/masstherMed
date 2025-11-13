@@ -303,11 +303,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         sessionDate: new Date(req.body.sessionDate),
       };
-      const validatedData = insertSessionSchema.parse(parsedBody);
+      
+      let validatedData;
+      try {
+        validatedData = insertSessionSchema.parse(parsedBody);
+      } catch (parseError) {
+        return res.status(400).json({ error: "Datos de sesión inválidos" });
+      }
+      
+      if (validatedData.protocolId) {
+        const protocol = await storage.getProtocol(validatedData.protocolId);
+        
+        if (!protocol) {
+          return res.status(400).json({ error: "El protocolo seleccionado no existe" });
+        }
+        
+        if (protocol.patientId !== validatedData.patientId) {
+          return res.status(400).json({ error: "El protocolo debe pertenecer al mismo paciente de la sesión" });
+        }
+        
+        if (protocol.status !== "active") {
+          return res.status(400).json({ error: "El protocolo debe estar activo para vincular sesiones" });
+        }
+        
+        if (protocol.completedSessions >= protocol.totalSessions) {
+          return res.status(400).json({ error: "El protocolo ya ha completado todas sus sesiones" });
+        }
+        
+        if (protocol.therapyTypeId !== validatedData.therapyTypeId) {
+          return res.status(400).json({ error: "El tipo de terapia de la sesión debe coincidir con el del protocolo" });
+        }
+      }
+      
       const session = await storage.createSession(validatedData);
+      
+      if (validatedData.protocolId) {
+        const protocol = await storage.getProtocol(validatedData.protocolId);
+        if (protocol) {
+          const newCompletedSessions = protocol.completedSessions + 1;
+          await storage.updateProtocol(validatedData.protocolId, {
+            completedSessions: newCompletedSessions,
+          });
+        }
+      }
+      
       res.status(201).json(session);
     } catch (error) {
-      res.status(400).json({ error: "Invalid session data" });
+      console.error("Error creating session:", error);
+      res.status(500).json({ error: "Error al crear la sesión" });
     }
   });
 
