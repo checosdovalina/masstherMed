@@ -52,7 +52,7 @@ export const sessions = pgTable("sessions", {
   patientId: varchar("patient_id").notNull(),
   therapistId: varchar("therapist_id").notNull(),
   therapyTypeId: varchar("therapy_type_id").notNull(),
-  protocolId: varchar("protocol_id"),
+  protocolAssignmentId: varchar("protocol_assignment_id"),
   sessionDate: timestamp("session_date").notNull(),
   duration: text("duration").notNull(),
   notes: text("notes"),
@@ -63,12 +63,19 @@ export const sessions = pgTable("sessions", {
 
 export const protocols = pgTable("protocols", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  patientId: varchar("patient_id").notNull(),
   therapyTypeId: varchar("therapy_type_id").notNull(),
   name: text("name").notNull(),
   description: text("description"),
   objectives: text("objectives"),
   totalSessions: integer("total_sessions").notNull(),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const protocolAssignments = pgTable("protocol_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  protocolId: varchar("protocol_id").notNull(),
+  patientId: varchar("patient_id").notNull(),
   completedSessions: integer("completed_sessions").notNull().default(0),
   status: text("status").notNull().default("active"),
   startDate: timestamp("start_date").notNull(),
@@ -82,6 +89,7 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull().default("therapist"),
+  therapistId: varchar("therapist_id"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -113,8 +121,14 @@ export const insertProtocolSchema = createInsertSchema(protocols).omit({
   id: true,
   createdAt: true,
 }).extend({
-  status: z.enum(["active", "completed", "cancelled"]).default("active"),
   totalSessions: z.number().int().min(1, "Debe tener al menos 1 sesión"),
+});
+
+export const insertProtocolAssignmentSchema = createInsertSchema(protocolAssignments).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  status: z.enum(["active", "completed", "cancelled"]).default("active"),
   completedSessions: z.number().int().min(0, "No puede ser negativo").default(0),
 });
 
@@ -145,6 +159,9 @@ export type InsertSession = z.infer<typeof insertSessionSchema>;
 
 export type Protocol = typeof protocols.$inferSelect;
 export type InsertProtocol = z.infer<typeof insertProtocolSchema>;
+
+export type ProtocolAssignment = typeof protocolAssignments.$inferSelect;
+export type InsertProtocolAssignment = z.infer<typeof insertProtocolAssignmentSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;

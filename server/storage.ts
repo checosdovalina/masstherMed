@@ -5,6 +5,7 @@ import {
   type Appointment, type InsertAppointment,
   type Session, type InsertSession,
   type Protocol, type InsertProtocol,
+  type ProtocolAssignment, type InsertProtocolAssignment,
   type User, type InsertUser
 } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -42,6 +43,13 @@ export interface IStorage {
   updateProtocol(id: string, protocol: Partial<InsertProtocol>): Promise<Protocol | undefined>;
   deleteProtocol(id: string): Promise<boolean>;
   
+  getProtocolAssignments(): Promise<ProtocolAssignment[]>;
+  getProtocolAssignment(id: string): Promise<ProtocolAssignment | undefined>;
+  getProtocolAssignmentsByPatient(patientId: string): Promise<ProtocolAssignment[]>;
+  createProtocolAssignment(assignment: InsertProtocolAssignment): Promise<ProtocolAssignment>;
+  updateProtocolAssignment(id: string, assignment: Partial<InsertProtocolAssignment>): Promise<ProtocolAssignment | undefined>;
+  deleteProtocolAssignment(id: string): Promise<boolean>;
+  
   getUsers(): Promise<User[]>;
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -56,6 +64,7 @@ export class MemStorage implements IStorage {
   private appointments: Map<string, Appointment>;
   private sessions: Map<string, Session>;
   private protocols: Map<string, Protocol>;
+  private protocolAssignments: Map<string, ProtocolAssignment>;
   private users: Map<string, User>;
 
   constructor() {
@@ -65,6 +74,7 @@ export class MemStorage implements IStorage {
     this.appointments = new Map();
     this.sessions = new Map();
     this.protocols = new Map();
+    this.protocolAssignments = new Map();
     this.users = new Map();
     
     this.seedData();
@@ -95,7 +105,7 @@ export class MemStorage implements IStorage {
       color: "#EF4444"
     });
 
-    this.createTherapistSync({
+    const therapist1 = this.createTherapistSync({
       name: "Dra. María González",
       email: "maria.gonzalez@massthermed.com",
       phone: "+52 555 123 4567",
@@ -103,7 +113,7 @@ export class MemStorage implements IStorage {
       avatarInitials: "MG"
     });
 
-    this.createTherapistSync({
+    const therapist2 = this.createTherapistSync({
       name: "Dr. Carlos Ruiz",
       email: "carlos.ruiz@massthermed.com",
       phone: "+52 555 234 5678",
@@ -111,7 +121,7 @@ export class MemStorage implements IStorage {
       avatarInitials: "CR"
     });
 
-    this.createTherapistSync({
+    const therapist3 = this.createTherapistSync({
       name: "Lic. Ana Martínez",
       email: "ana.martinez@massthermed.com",
       phone: "+52 555 345 6789",
@@ -120,33 +130,89 @@ export class MemStorage implements IStorage {
     });
 
     const adminPasswordHash = bcrypt.hashSync("admin123", 10);
-    this.createUserSync({
+    const adminUser = this.createUserSync({
       email: "admin@massthermed.com",
       passwordHash: adminPasswordHash,
       name: "Administrador",
-      role: "admin"
+      role: "admin",
+      therapistId: therapist1.id
+    });
+
+    this.createProtocolSync({
+      therapyTypeId: physicalTherapy.id,
+      name: "Rehabilitación Postoperatoria",
+      description: "Protocolo estándar para recuperación después de cirugías ortopédicas",
+      objectives: "Recuperar movilidad y fuerza muscular",
+      totalSessions: 12,
+      createdBy: adminUser.id
+    });
+
+    this.createProtocolSync({
+      therapyTypeId: physicalTherapy.id,
+      name: "Tratamiento de Lumbalgia Crónica",
+      description: "Manejo del dolor lumbar crónico mediante terapia manual",
+      objectives: "Reducir dolor y mejorar postura",
+      totalSessions: 8,
+      createdBy: adminUser.id
+    });
+
+    this.createProtocolSync({
+      therapyTypeId: occupationalTherapy.id,
+      name: "Rehabilitación de Mano",
+      description: "Recuperación funcional de la mano después de lesiones",
+      objectives: "Mejorar fuerza de agarre y destreza",
+      totalSessions: 10,
+      createdBy: adminUser.id
     });
   }
 
   private createTherapyTypeSync(therapyType: InsertTherapyType): TherapyType {
     const id = randomUUID();
-    const newTherapyType: TherapyType = { ...therapyType, id };
+    const newTherapyType: TherapyType = { 
+      ...therapyType, 
+      id,
+      description: therapyType.description ?? null
+    };
     this.therapyTypes.set(id, newTherapyType);
     return newTherapyType;
   }
 
   private createTherapistSync(therapist: InsertTherapist): Therapist {
     const id = randomUUID();
-    const newTherapist: Therapist = { ...therapist, id };
+    const newTherapist: Therapist = { 
+      ...therapist, 
+      id,
+      phone: therapist.phone ?? null,
+      specialties: therapist.specialties ?? null
+    };
     this.therapists.set(id, newTherapist);
     return newTherapist;
   }
 
   private createUserSync(user: InsertUser): User {
     const id = randomUUID();
-    const newUser: User = { ...user, id, createdAt: new Date() };
+    const newUser: User = { 
+      ...user, 
+      id, 
+      createdAt: new Date(),
+      role: user.role ?? "therapist",
+      therapistId: user.therapistId ?? null
+    };
     this.users.set(id, newUser);
     return newUser;
+  }
+
+  private createProtocolSync(protocol: InsertProtocol): Protocol {
+    const id = randomUUID();
+    const newProtocol: Protocol = { 
+      ...protocol, 
+      id, 
+      createdAt: new Date(),
+      description: protocol.description ?? null,
+      objectives: protocol.objectives ?? null
+    };
+    this.protocols.set(id, newProtocol);
+    return newProtocol;
   }
 
   async getTherapyTypes(): Promise<TherapyType[]> {
@@ -214,7 +280,11 @@ export class MemStorage implements IStorage {
       ...insertPatient, 
       id,
       avatarInitials,
-      createdAt: new Date()
+      createdAt: new Date(),
+      email: insertPatient.email ?? null,
+      address: insertPatient.address ?? null,
+      status: insertPatient.status ?? "active",
+      assignedTherapistId: insertPatient.assignedTherapistId ?? null
     };
     this.patients.set(id, patient);
     return patient;
@@ -242,7 +312,9 @@ export class MemStorage implements IStorage {
     const appointment: Appointment = {
       ...insertAppointment,
       id,
-      createdAt: new Date()
+      createdAt: new Date(),
+      status: insertAppointment.status ?? "scheduled",
+      notes: insertAppointment.notes ?? null
     };
     this.appointments.set(id, appointment);
     return appointment;
@@ -261,7 +333,11 @@ export class MemStorage implements IStorage {
     const session: Session = {
       ...insertSession,
       id,
-      createdAt: new Date()
+      createdAt: new Date(),
+      protocolAssignmentId: insertSession.protocolAssignmentId ?? null,
+      notes: insertSession.notes ?? null,
+      observations: insertSession.observations ?? null,
+      progress: insertSession.progress ?? null
     };
     this.sessions.set(id, session);
     return session;
@@ -280,7 +356,9 @@ export class MemStorage implements IStorage {
     const protocol: Protocol = {
       ...insertProtocol,
       id,
-      createdAt: new Date()
+      createdAt: new Date(),
+      description: insertProtocol.description ?? null,
+      objectives: insertProtocol.objectives ?? null
     };
     this.protocols.set(id, protocol);
     return protocol;
@@ -297,6 +375,47 @@ export class MemStorage implements IStorage {
 
   async deleteProtocol(id: string): Promise<boolean> {
     return this.protocols.delete(id);
+  }
+
+  async getProtocolAssignments(): Promise<ProtocolAssignment[]> {
+    return Array.from(this.protocolAssignments.values());
+  }
+
+  async getProtocolAssignment(id: string): Promise<ProtocolAssignment | undefined> {
+    return this.protocolAssignments.get(id);
+  }
+
+  async getProtocolAssignmentsByPatient(patientId: string): Promise<ProtocolAssignment[]> {
+    return Array.from(this.protocolAssignments.values()).filter(
+      assignment => assignment.patientId === patientId
+    );
+  }
+
+  async createProtocolAssignment(insertAssignment: InsertProtocolAssignment): Promise<ProtocolAssignment> {
+    const id = randomUUID();
+    const assignment: ProtocolAssignment = {
+      ...insertAssignment,
+      id,
+      createdAt: new Date(),
+      status: insertAssignment.status ?? "active",
+      completedSessions: insertAssignment.completedSessions ?? 0,
+      endDate: insertAssignment.endDate ?? null
+    };
+    this.protocolAssignments.set(id, assignment);
+    return assignment;
+  }
+
+  async updateProtocolAssignment(id: string, updates: Partial<InsertProtocolAssignment>): Promise<ProtocolAssignment | undefined> {
+    const assignment = this.protocolAssignments.get(id);
+    if (!assignment) return undefined;
+    
+    const updatedAssignment = { ...assignment, ...updates };
+    this.protocolAssignments.set(id, updatedAssignment);
+    return updatedAssignment;
+  }
+
+  async deleteProtocolAssignment(id: string): Promise<boolean> {
+    return this.protocolAssignments.delete(id);
   }
 
   async getUsers(): Promise<User[]> {

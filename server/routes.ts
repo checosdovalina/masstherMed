@@ -8,6 +8,7 @@ import {
   insertAppointmentSchema,
   insertSessionSchema,
   insertProtocolSchema,
+  insertProtocolAssignmentSchema,
   loginSchema
 } from "@shared/schema";
 
@@ -311,23 +312,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Datos de sesión inválidos" });
       }
       
-      if (validatedData.protocolId) {
-        const protocol = await storage.getProtocol(validatedData.protocolId);
+      if (validatedData.protocolAssignmentId) {
+        const assignment = await storage.getProtocolAssignment(validatedData.protocolAssignmentId);
         
+        if (!assignment) {
+          return res.status(400).json({ error: "La asignación de protocolo seleccionada no existe" });
+        }
+        
+        if (assignment.patientId !== validatedData.patientId) {
+          return res.status(400).json({ error: "La asignación de protocolo debe pertenecer al mismo paciente de la sesión" });
+        }
+        
+        if (assignment.status !== "active") {
+          return res.status(400).json({ error: "La asignación de protocolo debe estar activa para vincular sesiones" });
+        }
+        
+        const protocol = await storage.getProtocol(assignment.protocolId);
         if (!protocol) {
-          return res.status(400).json({ error: "El protocolo seleccionado no existe" });
+          return res.status(400).json({ error: "El protocolo de la asignación no existe" });
         }
         
-        if (protocol.patientId !== validatedData.patientId) {
-          return res.status(400).json({ error: "El protocolo debe pertenecer al mismo paciente de la sesión" });
-        }
-        
-        if (protocol.status !== "active") {
-          return res.status(400).json({ error: "El protocolo debe estar activo para vincular sesiones" });
-        }
-        
-        if (protocol.completedSessions >= protocol.totalSessions) {
-          return res.status(400).json({ error: "El protocolo ya ha completado todas sus sesiones" });
+        if (assignment.completedSessions >= protocol.totalSessions) {
+          return res.status(400).json({ error: "La asignación ya ha completado todas sus sesiones" });
         }
         
         if (protocol.therapyTypeId !== validatedData.therapyTypeId) {
@@ -337,11 +343,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const session = await storage.createSession(validatedData);
       
-      if (validatedData.protocolId) {
-        const protocol = await storage.getProtocol(validatedData.protocolId);
-        if (protocol) {
-          const newCompletedSessions = protocol.completedSessions + 1;
-          await storage.updateProtocol(validatedData.protocolId, {
+      if (validatedData.protocolAssignmentId) {
+        const assignment = await storage.getProtocolAssignment(validatedData.protocolAssignmentId);
+        if (assignment) {
+          const newCompletedSessions = assignment.completedSessions + 1;
+          await storage.updateProtocolAssignment(validatedData.protocolAssignmentId, {
             completedSessions: newCompletedSessions,
           });
         }
@@ -377,20 +383,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/protocols", requireAuth, async (req, res) => {
     try {
-      const parsedBody = {
+      const validatedData = insertProtocolSchema.parse({
         ...req.body,
-        startDate: new Date(req.body.startDate),
-        endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
-      };
-      const validatedData = insertProtocolSchema.parse(parsedBody);
-      
-      if (validatedData.completedSessions > validatedData.totalSessions) {
-        return res.status(400).json({ error: "Las sesiones completadas no pueden exceder el total de sesiones" });
-      }
-      
-      if (validatedData.endDate && validatedData.endDate < validatedData.startDate) {
-        return res.status(400).json({ error: "La fecha de finalización debe ser posterior a la fecha de inicio" });
-      }
+        createdBy: req.session.userId
+      });
       
       const protocol = await storage.createProtocol(validatedData);
       res.status(201).json(protocol);
@@ -401,36 +397,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/protocols/:id", requireAuth, async (req, res) => {
     try {
-      const parsedBody: any = { ...req.body };
-      if (parsedBody.startDate) {
-        parsedBody.startDate = new Date(parsedBody.startDate);
-      }
-      if (parsedBody.endDate) {
-        parsedBody.endDate = new Date(parsedBody.endDate);
-      }
+      const allowedFields = ['name', 'description', 'objectives', 'totalSessions', 'therapyTypeId'];
+      const updates: any = {};
       
-      const validatedData = insertProtocolSchema.partial().parse(parsedBody);
-      
-      if (Object.keys(validatedData).length === 0) {
-        return res.status(400).json({ error: "Debe proporcionar al menos un campo para actualizar" });
+      for (const key of Object.keys(req.body)) {
+        if (allowedFields.includes(key)) {
+          updates[key] = req.body[key];
+        }
       }
       
-      const existingProtocol = await storage.getProtocol(req.params.id);
-      if (!existingProtocol) {
-        return res.status(404).json({ error: "Protocolo no encontrado" });
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "Debe proporcionar al menos un campo para actualizar (name, description, objectives, totalSessions, therapyTypeId)" });
       }
       
-      const mergedData = { ...existingProtocol, ...validatedData };
-      
-      if (mergedData.completedSessions > mergedData.totalSessions) {
-        return res.status(400).json({ error: "Las sesiones completadas no pueden exceder el total de sesiones" });
-      }
-      
-      if (mergedData.endDate && mergedData.endDate < mergedData.startDate) {
-        return res.status(400).json({ error: "La fecha de finalización debe ser posterior a la fecha de inicio" });
-      }
+      const validatedData = insertProtocolSchema.partial().parse(updates);
       
       const protocol = await storage.updateProtocol(req.params.id, validatedData);
+      if (!protocol) {
+        return res.status(404).json({ error: "Protocolo no encontrado" });
+      }
       res.json(protocol);
     } catch (error) {
       res.status(400).json({ error: "Datos de protocolo inválidos" });
@@ -446,6 +431,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Protocolo eliminado exitosamente" });
     } catch (error) {
       res.status(500).json({ error: "Error al eliminar protocolo" });
+    }
+  });
+
+  app.get("/api/protocol-assignments", requireAuth, async (req, res) => {
+    try {
+      const assignments = await storage.getProtocolAssignments();
+      res.json(assignments);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener asignaciones de protocolos" });
+    }
+  });
+
+  app.get("/api/protocol-assignments/patient/:patientId", requireAuth, async (req, res) => {
+    try {
+      const assignments = await storage.getProtocolAssignmentsByPatient(req.params.patientId);
+      res.json(assignments);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener asignaciones del paciente" });
+    }
+  });
+
+  app.post("/api/protocol-assignments", requireAuth, async (req, res) => {
+    try {
+      const parsedBody = {
+        ...req.body,
+        startDate: new Date(req.body.startDate),
+        endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
+      };
+      
+      const validatedData = insertProtocolAssignmentSchema.parse(parsedBody);
+      
+      const protocol = await storage.getProtocol(validatedData.protocolId);
+      if (!protocol) {
+        return res.status(400).json({ error: "El protocolo seleccionado no existe" });
+      }
+      
+      const patient = await storage.getPatient(validatedData.patientId);
+      if (!patient) {
+        return res.status(400).json({ error: "El paciente seleccionado no existe" });
+      }
+      
+      if (validatedData.endDate && validatedData.endDate < validatedData.startDate) {
+        return res.status(400).json({ error: "La fecha de finalización debe ser posterior a la fecha de inicio" });
+      }
+      
+      if (validatedData.completedSessions && validatedData.completedSessions > protocol.totalSessions) {
+        return res.status(400).json({ error: "Las sesiones completadas no pueden exceder el total de sesiones del protocolo" });
+      }
+      
+      const assignment = await storage.createProtocolAssignment(validatedData);
+      res.status(201).json(assignment);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de asignación de protocolo inválidos" });
+    }
+  });
+
+  app.patch("/api/protocol-assignments/:id", requireAuth, async (req, res) => {
+    try {
+      const parsedBody: any = { ...req.body };
+      if (parsedBody.startDate) {
+        parsedBody.startDate = new Date(parsedBody.startDate);
+      }
+      if (parsedBody.endDate) {
+        parsedBody.endDate = new Date(parsedBody.endDate);
+      }
+      
+      const validatedData = insertProtocolAssignmentSchema.partial().parse(parsedBody);
+      
+      if (Object.keys(validatedData).length === 0) {
+        return res.status(400).json({ error: "Debe proporcionar al menos un campo para actualizar" });
+      }
+      
+      const existingAssignment = await storage.getProtocolAssignment(req.params.id);
+      if (!existingAssignment) {
+        return res.status(404).json({ error: "Asignación de protocolo no encontrada" });
+      }
+      
+      const protocol = await storage.getProtocol(existingAssignment.protocolId);
+      if (!protocol) {
+        return res.status(400).json({ error: "El protocolo de la asignación no existe" });
+      }
+      
+      const mergedData = { ...existingAssignment, ...validatedData };
+      
+      if (mergedData.completedSessions > protocol.totalSessions) {
+        return res.status(400).json({ error: "Las sesiones completadas no pueden exceder el total de sesiones del protocolo" });
+      }
+      
+      if (mergedData.endDate && mergedData.endDate < mergedData.startDate) {
+        return res.status(400).json({ error: "La fecha de finalización debe ser posterior a la fecha de inicio" });
+      }
+      
+      const assignment = await storage.updateProtocolAssignment(req.params.id, validatedData);
+      res.json(assignment);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de asignación de protocolo inválidos" });
+    }
+  });
+
+  app.delete("/api/protocol-assignments/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteProtocolAssignment(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Asignación de protocolo no encontrada" });
+      }
+      res.json({ message: "Asignación de protocolo eliminada exitosamente" });
+    } catch (error) {
+      res.status(500).json({ error: "Error al eliminar asignación de protocolo" });
     }
   });
 
