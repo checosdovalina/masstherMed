@@ -80,6 +80,21 @@ export class MemStorage implements IStorage {
     this.seedData();
   }
 
+  private toNull<T>(value: T | null | undefined): T | null {
+    return value === undefined ? null : value;
+  }
+
+  private cleanUpdates<T extends Record<string, any>>(updates: T): Partial<T> {
+    const immutableFields = ['id', 'createdAt'];
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined && !immutableFields.includes(key)) {
+        cleaned[key] = value;
+      }
+    }
+    return cleaned;
+  }
+
   private seedData() {
     const physicalTherapy = this.createTherapyTypeSync({
       name: "Terapia Física",
@@ -169,9 +184,10 @@ export class MemStorage implements IStorage {
   private createTherapyTypeSync(therapyType: InsertTherapyType): TherapyType {
     const id = randomUUID();
     const newTherapyType: TherapyType = { 
-      ...therapyType, 
       id,
-      description: therapyType.description ?? null
+      name: therapyType.name,
+      color: therapyType.color,
+      description: this.toNull(therapyType.description)
     };
     this.therapyTypes.set(id, newTherapyType);
     return newTherapyType;
@@ -180,10 +196,12 @@ export class MemStorage implements IStorage {
   private createTherapistSync(therapist: InsertTherapist): Therapist {
     const id = randomUUID();
     const newTherapist: Therapist = { 
-      ...therapist, 
       id,
-      phone: therapist.phone ?? null,
-      specialties: therapist.specialties ?? null
+      name: therapist.name,
+      email: therapist.email,
+      avatarInitials: therapist.avatarInitials,
+      phone: this.toNull(therapist.phone),
+      specialties: this.toNull(therapist.specialties)
     };
     this.therapists.set(id, newTherapist);
     return newTherapist;
@@ -192,11 +210,13 @@ export class MemStorage implements IStorage {
   private createUserSync(user: InsertUser): User {
     const id = randomUUID();
     const newUser: User = { 
-      ...user, 
       id, 
-      createdAt: new Date(),
+      email: user.email,
+      passwordHash: user.passwordHash,
+      name: user.name,
       role: user.role ?? "therapist",
-      therapistId: user.therapistId ?? null
+      therapistId: this.toNull(user.therapistId),
+      createdAt: new Date()
     };
     this.users.set(id, newUser);
     return newUser;
@@ -205,11 +225,14 @@ export class MemStorage implements IStorage {
   private createProtocolSync(protocol: InsertProtocol): Protocol {
     const id = randomUUID();
     const newProtocol: Protocol = { 
-      ...protocol, 
       id, 
-      createdAt: new Date(),
-      description: protocol.description ?? null,
-      objectives: protocol.objectives ?? null
+      name: protocol.name,
+      therapyTypeId: protocol.therapyTypeId,
+      totalSessions: protocol.totalSessions,
+      createdBy: protocol.createdBy,
+      description: this.toNull(protocol.description),
+      objectives: this.toNull(protocol.objectives),
+      createdAt: new Date()
     };
     this.protocols.set(id, newProtocol);
     return newProtocol;
@@ -231,7 +254,8 @@ export class MemStorage implements IStorage {
     const therapyType = this.therapyTypes.get(id);
     if (!therapyType) return undefined;
     
-    const updatedTherapyType = { ...therapyType, ...updates };
+    const cleaned = this.cleanUpdates(updates);
+    const updatedTherapyType = { ...therapyType, ...cleaned };
     this.therapyTypes.set(id, updatedTherapyType);
     return updatedTherapyType;
   }
@@ -256,7 +280,8 @@ export class MemStorage implements IStorage {
     const therapist = this.therapists.get(id);
     if (!therapist) return undefined;
     
-    const updatedTherapist = { ...therapist, ...updates };
+    const cleaned = this.cleanUpdates(updates);
+    const updatedTherapist = { ...therapist, ...cleaned };
     this.therapists.set(id, updatedTherapist);
     return updatedTherapist;
   }
@@ -277,14 +302,19 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const avatarInitials = `${insertPatient.firstName.charAt(0)}${insertPatient.lastName.charAt(0)}`.toUpperCase();
     const patient: Patient = { 
-      ...insertPatient, 
       id,
+      firstName: insertPatient.firstName,
+      lastName: insertPatient.lastName,
+      dateOfBirth: insertPatient.dateOfBirth,
+      phone: insertPatient.phone,
+      emergencyContact: insertPatient.emergencyContact,
+      emergencyPhone: insertPatient.emergencyPhone,
       avatarInitials,
-      createdAt: new Date(),
-      email: insertPatient.email ?? null,
-      address: insertPatient.address ?? null,
+      email: this.toNull(insertPatient.email),
+      address: this.toNull(insertPatient.address),
       status: insertPatient.status ?? "active",
-      assignedTherapistId: insertPatient.assignedTherapistId ?? null
+      assignedTherapistId: this.toNull(insertPatient.assignedTherapistId),
+      createdAt: new Date()
     };
     this.patients.set(id, patient);
     return patient;
@@ -294,7 +324,8 @@ export class MemStorage implements IStorage {
     const patient = this.patients.get(id);
     if (!patient) return undefined;
     
-    const updatedPatient = { ...patient, ...updates };
+    const cleaned = this.cleanUpdates(updates);
+    const updatedPatient = { ...patient, ...cleaned };
     this.patients.set(id, updatedPatient);
     return updatedPatient;
   }
@@ -310,11 +341,15 @@ export class MemStorage implements IStorage {
   async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
     const id = randomUUID();
     const appointment: Appointment = {
-      ...insertAppointment,
       id,
-      createdAt: new Date(),
+      therapistId: insertAppointment.therapistId,
+      patientId: insertAppointment.patientId,
+      therapyTypeId: insertAppointment.therapyTypeId,
+      startTime: insertAppointment.startTime,
+      endTime: insertAppointment.endTime,
       status: insertAppointment.status ?? "scheduled",
-      notes: insertAppointment.notes ?? null
+      notes: this.toNull(insertAppointment.notes),
+      createdAt: new Date()
     };
     this.appointments.set(id, appointment);
     return appointment;
@@ -331,13 +366,17 @@ export class MemStorage implements IStorage {
   async createSession(insertSession: InsertSession): Promise<Session> {
     const id = randomUUID();
     const session: Session = {
-      ...insertSession,
       id,
-      createdAt: new Date(),
-      protocolAssignmentId: insertSession.protocolAssignmentId ?? null,
-      notes: insertSession.notes ?? null,
-      observations: insertSession.observations ?? null,
-      progress: insertSession.progress ?? null
+      therapistId: insertSession.therapistId,
+      patientId: insertSession.patientId,
+      therapyTypeId: insertSession.therapyTypeId,
+      sessionDate: insertSession.sessionDate,
+      duration: insertSession.duration,
+      protocolAssignmentId: this.toNull(insertSession.protocolAssignmentId),
+      notes: this.toNull(insertSession.notes),
+      observations: this.toNull(insertSession.observations),
+      progress: this.toNull(insertSession.progress),
+      createdAt: new Date()
     };
     this.sessions.set(id, session);
     return session;
@@ -354,11 +393,14 @@ export class MemStorage implements IStorage {
   async createProtocol(insertProtocol: InsertProtocol): Promise<Protocol> {
     const id = randomUUID();
     const protocol: Protocol = {
-      ...insertProtocol,
       id,
-      createdAt: new Date(),
-      description: insertProtocol.description ?? null,
-      objectives: insertProtocol.objectives ?? null
+      name: insertProtocol.name,
+      therapyTypeId: insertProtocol.therapyTypeId,
+      totalSessions: insertProtocol.totalSessions,
+      createdBy: insertProtocol.createdBy,
+      description: this.toNull(insertProtocol.description),
+      objectives: this.toNull(insertProtocol.objectives),
+      createdAt: new Date()
     };
     this.protocols.set(id, protocol);
     return protocol;
@@ -368,7 +410,8 @@ export class MemStorage implements IStorage {
     const protocol = this.protocols.get(id);
     if (!protocol) return undefined;
     
-    const updatedProtocol = { ...protocol, ...updates };
+    const cleaned = this.cleanUpdates(updates);
+    const updatedProtocol = { ...protocol, ...cleaned };
     this.protocols.set(id, updatedProtocol);
     return updatedProtocol;
   }
@@ -394,12 +437,14 @@ export class MemStorage implements IStorage {
   async createProtocolAssignment(insertAssignment: InsertProtocolAssignment): Promise<ProtocolAssignment> {
     const id = randomUUID();
     const assignment: ProtocolAssignment = {
-      ...insertAssignment,
       id,
-      createdAt: new Date(),
+      protocolId: insertAssignment.protocolId,
+      patientId: insertAssignment.patientId,
+      startDate: insertAssignment.startDate,
       status: insertAssignment.status ?? "active",
       completedSessions: insertAssignment.completedSessions ?? 0,
-      endDate: insertAssignment.endDate ?? null
+      endDate: this.toNull(insertAssignment.endDate),
+      createdAt: new Date()
     };
     this.protocolAssignments.set(id, assignment);
     return assignment;
@@ -409,7 +454,8 @@ export class MemStorage implements IStorage {
     const assignment = this.protocolAssignments.get(id);
     if (!assignment) return undefined;
     
-    const updatedAssignment = { ...assignment, ...updates };
+    const cleaned = this.cleanUpdates(updates);
+    const updatedAssignment = { ...assignment, ...cleaned };
     this.protocolAssignments.set(id, updatedAssignment);
     return updatedAssignment;
   }
