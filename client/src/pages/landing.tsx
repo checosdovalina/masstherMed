@@ -7,15 +7,15 @@ import logoHorizontal from "@assets/MM_Logo_Horizontal_Color_RGB_1762825081671.p
 export default function Landing() {
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b">
+      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-3">
-              <img src={logoHorizontal} alt="Massther Med" className="h-10" />
+              <img src={logoHorizontal} alt="Massther Med" className="h-16 md:h-20" />
             </div>
             <Link href="/dashboard" data-testid="link-dashboard-nav">
-              <Button data-testid="button-login">
-                Acceder al Sistema
+              <Button size="lg" data-testid="button-login">
+                Login
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
@@ -23,16 +23,27 @@ export default function Landing() {
         </div>
       </nav>
 
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
+      <section className="relative py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-background to-muted/20">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-4xl font-bold mb-4">
-              Bienvenido a Massther Med°
+          <div className="text-center max-w-4xl mx-auto mb-20">
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent">
+              Massther Med°
+            </h1>
+            <h2 className="text-2xl md:text-3xl font-semibold mb-6">
+              Centro de Masajes Terapéuticos Profesionales
             </h2>
-            <p className="text-xl text-muted-foreground">
-              Centro especializado en masajes terapéuticos profesionales. 
-              Comprometidos con tu bienestar, salud y recuperación física.
+            <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed">
+              Comprometidos con tu bienestar, salud y recuperación física a través de 
+              tratamientos personalizados y profesionales de alta calidad.
             </p>
+            <div className="mt-10">
+              <Link href="/dashboard" data-testid="link-dashboard-hero">
+                <Button size="lg" className="h-14 px-8 text-lg" data-testid="button-access-hero">
+                  Login
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+            </div>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-16">
@@ -93,49 +104,49 @@ export default function Landing() {
             </Card>
           </div>
 
-          <div className="bg-card rounded-lg border p-8 md:p-12">
-            <div className="grid md:grid-cols-2 gap-8 items-center">
+          <div className="bg-card rounded-lg border p-8 md:p-12 shadow-sm">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <h3 className="text-2xl font-bold mb-4">Nuestros Servicios</h3>
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
+                <h3 className="text-3xl font-bold mb-6">Nuestros Servicios</h3>
+                <ul className="space-y-4">
+                  <li className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
                     <div>
-                      <strong className="font-semibold">Masaje Terapéutico:</strong>
+                      <strong className="font-semibold text-lg">Masaje Terapéutico:</strong>
                       <span className="text-muted-foreground"> Tratamiento especializado para alivio del dolor y recuperación muscular</span>
                     </div>
                   </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
+                  <li className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
                     <div>
-                      <strong className="font-semibold">Masaje Deportivo:</strong>
+                      <strong className="font-semibold text-lg">Masaje Deportivo:</strong>
                       <span className="text-muted-foreground"> Prevención de lesiones y mejora del rendimiento atlético</span>
                     </div>
                   </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
+                  <li className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
                     <div>
-                      <strong className="font-semibold">Masaje de Relajación:</strong>
+                      <strong className="font-semibold text-lg">Masaje de Relajación:</strong>
                       <span className="text-muted-foreground"> Reducción de estrés y tensión muscular</span>
                     </div>
                   </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
+                  <li className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
                     <div>
-                      <strong className="font-semibold">Masaje de Tejido Profundo:</strong>
+                      <strong className="font-semibold text-lg">Masaje de Tejido Profundo:</strong>
                       <span className="text-muted-foreground"> Tratamiento de dolencias crónicas y contracturas musculares</span>
                     </div>
                   </li>
                 </ul>
               </div>
-              <div className="bg-muted/30 rounded-lg p-8 text-center">
-                <h4 className="text-xl font-bold mb-4">Acceso al Sistema de Gestión</h4>
-                <p className="text-muted-foreground mb-6">
-                  Profesionales de la salud pueden acceder al sistema de gestión para administrar pacientes, citas y expedientes clínicos.
+              <div className="bg-gradient-to-br from-primary/5 to-accent/5 rounded-lg p-10 text-center border">
+                <h4 className="text-2xl font-bold mb-4">Sistema de Gestión Profesional</h4>
+                <p className="text-muted-foreground mb-8 text-lg">
+                  Accede al sistema de gestión para administrar pacientes, citas y expedientes clínicos de manera eficiente.
                 </p>
                 <Link href="/dashboard" data-testid="link-dashboard-cta">
-                  <Button size="lg" className="w-full" data-testid="button-access-system">
-                    Ingresar al Sistema
+                  <Button size="lg" className="w-full h-14 text-lg" data-testid="button-access-system">
+                    Login
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
