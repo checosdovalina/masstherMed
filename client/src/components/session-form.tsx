@@ -293,7 +293,7 @@ export function SessionForm({ onSuccess }: SessionFormProps) {
                 <FormLabel>Protocolo (Opcional)</FormLabel>
                 <Select 
                   onValueChange={field.onChange} 
-                  value={field.value || ""}
+                  defaultValue={field.value || undefined}
                   disabled={!selectedPatientId || !selectedTherapyTypeId}
                 >
                   <FormControl>
@@ -310,16 +310,21 @@ export function SessionForm({ onSuccess }: SessionFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">Sin protocolo</SelectItem>
-                    {activeProtocolAssignmentsForPatient.map((assignment) => (
-                      <SelectItem key={assignment.id} value={assignment.id}>
-                        {assignment.protocol?.name} ({assignment.completedSessions}/{assignment.protocol?.totalSessions})
-                      </SelectItem>
-                    ))}
+                    {activeProtocolAssignmentsForPatient.length > 0 ? (
+                      activeProtocolAssignmentsForPatient.map((assignment) => (
+                        <SelectItem key={assignment.id} value={assignment.id}>
+                          {assignment.protocol?.name} ({assignment.completedSessions}/{assignment.protocol?.totalSessions})
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                        No hay protocolos disponibles
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
                 <FormDescription className="text-xs">
-                  Solo se muestran protocolos activos con el mismo tipo de terapia
+                  Solo se muestran protocolos activos con el mismo tipo de terapia. Dejar sin selección para sesión sin protocolo.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
