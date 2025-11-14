@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Users, Calendar, Heart, ArrowRight } from "lucide-react";
+import { Activity, Users, Calendar, Heart, ArrowRight, Award, Clock, Shield, Target, TrendingUp, CheckCircle2 } from "lucide-react";
 import logoHorizontal from "@assets/MM_Logo_Horizontal_Color_RGB_1762825081671.png";
 
 export default function Landing() {
@@ -36,14 +36,6 @@ export default function Landing() {
               Comprometidos con tu bienestar, salud y recuperación física a través de 
               tratamientos personalizados y profesionales de alta calidad.
             </p>
-            <div className="mt-10">
-              <Link href="/dashboard" data-testid="link-dashboard-hero">
-                <Button size="lg" className="h-14 px-8 text-lg" data-testid="button-access-hero">
-                  Login
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-            </div>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-16">
@@ -141,16 +133,168 @@ export default function Landing() {
               </div>
               <div className="bg-gradient-to-br from-primary/5 to-accent/5 rounded-lg p-10 text-center border">
                 <h4 className="text-2xl font-bold mb-4">Sistema de Gestión Profesional</h4>
-                <p className="text-muted-foreground mb-8 text-lg">
-                  Accede al sistema de gestión para administrar pacientes, citas y expedientes clínicos de manera eficiente.
+                <p className="text-muted-foreground text-lg">
+                  Plataforma digital para administrar pacientes, citas y expedientes clínicos de manera eficiente y segura.
                 </p>
-                <Link href="/dashboard" data-testid="link-dashboard-cta">
-                  <Button size="lg" className="w-full h-14 text-lg" data-testid="button-access-system">
-                    Login
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <h3 className="text-3xl md:text-4xl font-bold mb-4">¿Por qué elegir Massther Med°?</h3>
+            <p className="text-lg text-muted-foreground">
+              Nos destacamos por nuestra excelencia profesional y compromiso con resultados medibles
+            </p>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            <Card className="border-2 hover-elevate active-elevate-2">
+              <CardHeader>
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <Award className="h-7 w-7 text-primary" />
+                </div>
+                <CardTitle className="text-xl">Profesionales Certificados</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Equipo de terapeutas con certificaciones profesionales y formación continua en técnicas de vanguardia
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2 hover-elevate active-elevate-2">
+              <CardHeader>
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <Target className="h-7 w-7 text-primary" />
+                </div>
+                <CardTitle className="text-xl">Tratamientos Personalizados</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Protocolos de tratamiento diseñados específicamente para cada paciente y sus necesidades únicas
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2 hover-elevate active-elevate-2">
+              <CardHeader>
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <TrendingUp className="h-7 w-7 text-primary" />
+                </div>
+                <CardTitle className="text-xl">Resultados Comprobados</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Seguimiento detallado de cada sesión para monitorear el progreso y ajustar tratamientos
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2 hover-elevate active-elevate-2">
+              <CardHeader>
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <Clock className="h-7 w-7 text-primary" />
+                </div>
+                <CardTitle className="text-xl">Flexibilidad Horaria</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Amplio horario de atención que se adapta a tu rutina, incluyendo fines de semana
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2 hover-elevate active-elevate-2">
+              <CardHeader>
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <Shield className="h-7 w-7 text-primary" />
+                </div>
+                <CardTitle className="text-xl">Ambiente Seguro</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Instalaciones sanitizadas con protocolos de higiene y bioseguridad de última generación
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2 hover-elevate active-elevate-2">
+              <CardHeader>
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <Activity className="h-7 w-7 text-primary" />
+                </div>
+                <CardTitle className="text-xl">Tecnología Moderna</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Sistema digital de gestión para un seguimiento preciso de tu historial y evolución
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h3 className="text-3xl md:text-4xl font-bold mb-4">Nuestros Campos de Tratamiento</h3>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Especialistas en diversas áreas terapéuticas para atender tus necesidades específicas
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="bg-card border rounded-lg p-6 hover-elevate">
+              <CheckCircle2 className="h-6 w-6 text-primary mb-3" />
+              <h4 className="font-semibold mb-2">Lesiones Deportivas</h4>
+              <p className="text-sm text-muted-foreground">Recuperación y prevención de lesiones atléticas</p>
+            </div>
+
+            <div className="bg-card border rounded-lg p-6 hover-elevate">
+              <CheckCircle2 className="h-6 w-6 text-primary mb-3" />
+              <h4 className="font-semibold mb-2">Dolor Crónico</h4>
+              <p className="text-sm text-muted-foreground">Tratamiento de dolencias musculares persistentes</p>
+            </div>
+
+            <div className="bg-card border rounded-lg p-6 hover-elevate">
+              <CheckCircle2 className="h-6 w-6 text-primary mb-3" />
+              <h4 className="font-semibold mb-2">Rehabilitación</h4>
+              <p className="text-sm text-muted-foreground">Recuperación post-quirúrgica y física</p>
+            </div>
+
+            <div className="bg-card border rounded-lg p-6 hover-elevate">
+              <CheckCircle2 className="h-6 w-6 text-primary mb-3" />
+              <h4 className="font-semibold mb-2">Estrés y Tensión</h4>
+              <p className="text-sm text-muted-foreground">Alivio de tensión muscular y mental</p>
+            </div>
+
+            <div className="bg-card border rounded-lg p-6 hover-elevate">
+              <CheckCircle2 className="h-6 w-6 text-primary mb-3" />
+              <h4 className="font-semibold mb-2">Postura Corporal</h4>
+              <p className="text-sm text-muted-foreground">Corrección de problemas posturales</p>
+            </div>
+
+            <div className="bg-card border rounded-lg p-6 hover-elevate">
+              <CheckCircle2 className="h-6 w-6 text-primary mb-3" />
+              <h4 className="font-semibold mb-2">Movilidad</h4>
+              <p className="text-sm text-muted-foreground">Mejora de rango de movimiento articular</p>
+            </div>
+
+            <div className="bg-card border rounded-lg p-6 hover-elevate">
+              <CheckCircle2 className="h-6 w-6 text-primary mb-3" />
+              <h4 className="font-semibold mb-2">Fatiga Muscular</h4>
+              <p className="text-sm text-muted-foreground">Recuperación y revitalización muscular</p>
+            </div>
+
+            <div className="bg-card border rounded-lg p-6 hover-elevate">
+              <CheckCircle2 className="h-6 w-6 text-primary mb-3" />
+              <h4 className="font-semibold mb-2">Bienestar General</h4>
+              <p className="text-sm text-muted-foreground">Prevención y mantenimiento de salud</p>
             </div>
           </div>
         </div>
