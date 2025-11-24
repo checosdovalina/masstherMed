@@ -9,6 +9,7 @@ import {
   insertSessionSchema,
   insertProtocolSchema,
   insertProtocolAssignmentSchema,
+  insertClinicalHistorySchema,
   loginSchema
 } from "@shared/schema";
 
@@ -563,6 +564,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Asignación de protocolo eliminada exitosamente" });
     } catch (error) {
       res.status(500).json({ error: "Error al eliminar asignación de protocolo" });
+    }
+  });
+
+  app.get("/api/clinical-histories", requireAuth, async (req, res) => {
+    try {
+      const histories = await storage.getClinicalHistories();
+      res.json(histories);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener historiales clínicos" });
+    }
+  });
+
+  app.get("/api/clinical-histories/:id", requireAuth, async (req, res) => {
+    try {
+      const history = await storage.getClinicalHistory(req.params.id);
+      if (!history) {
+        return res.status(404).json({ error: "Historial clínico no encontrado" });
+      }
+      res.json(history);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener historial clínico" });
+    }
+  });
+
+  app.get("/api/clinical-histories/patient/:patientId", requireAuth, async (req, res) => {
+    try {
+      const history = await storage.getClinicalHistoryByPatient(req.params.patientId);
+      res.json(history || null);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener historial clínico del paciente" });
+    }
+  });
+
+  app.post("/api/clinical-histories", requireAuth, async (req, res) => {
+    try {
+      const parsedBody: any = { ...req.body };
+      if (parsedBody.fecha) {
+        parsedBody.fecha = new Date(parsedBody.fecha);
+      }
+      
+      const validatedData = insertClinicalHistorySchema.parse(parsedBody);
+      
+      const patient = await storage.getPatient(validatedData.patientId);
+      if (!patient) {
+        return res.status(400).json({ error: "El paciente seleccionado no existe" });
+      }
+      
+      const existingHistory = await storage.getClinicalHistoryByPatient(validatedData.patientId);
+      if (existingHistory) {
+        return res.status(400).json({ error: "El paciente ya tiene un historial clínico. Puede editarlo en su lugar." });
+      }
+      
+      const history = await storage.createClinicalHistory(validatedData);
+      res.status(201).json(history);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de historial clínico inválidos" });
+    }
+  });
+
+  app.patch("/api/clinical-histories/:id", requireAuth, async (req, res) => {
+    try {
+      const parsedBody: any = { ...req.body };
+      if (parsedBody.fecha) {
+        parsedBody.fecha = new Date(parsedBody.fecha);
+      }
+      
+      const validatedData = insertClinicalHistorySchema.partial().parse(parsedBody);
+      
+      if (Object.keys(validatedData).length === 0) {
+        return res.status(400).json({ error: "Debe proporcionar al menos un campo para actualizar" });
+      }
+      
+      const history = await storage.updateClinicalHistory(req.params.id, validatedData);
+      if (!history) {
+        return res.status(404).json({ error: "Historial clínico no encontrado" });
+      }
+      res.json(history);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de historial clínico inválidos" });
     }
   });
 

@@ -6,7 +6,8 @@ import {
   type Session, type InsertSession,
   type Protocol, type InsertProtocol,
   type ProtocolAssignment, type InsertProtocolAssignment,
-  type User, type InsertUser
+  type User, type InsertUser,
+  type ClinicalHistory, type InsertClinicalHistory
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcrypt";
@@ -55,6 +56,12 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   verifyPassword(email: string, password: string): Promise<User | null>;
+  
+  getClinicalHistories(): Promise<ClinicalHistory[]>;
+  getClinicalHistory(id: string): Promise<ClinicalHistory | undefined>;
+  getClinicalHistoryByPatient(patientId: string): Promise<ClinicalHistory | undefined>;
+  createClinicalHistory(history: InsertClinicalHistory): Promise<ClinicalHistory>;
+  updateClinicalHistory(id: string, history: Partial<InsertClinicalHistory>): Promise<ClinicalHistory | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -66,6 +73,7 @@ export class MemStorage implements IStorage {
   private protocols: Map<string, Protocol>;
   private protocolAssignments: Map<string, ProtocolAssignment>;
   private users: Map<string, User>;
+  private clinicalHistories: Map<string, ClinicalHistory>;
 
   constructor() {
     this.therapyTypes = new Map();
@@ -76,6 +84,7 @@ export class MemStorage implements IStorage {
     this.protocols = new Map();
     this.protocolAssignments = new Map();
     this.users = new Map();
+    this.clinicalHistories = new Map();
     
     this.seedData();
   }
@@ -488,6 +497,58 @@ export class MemStorage implements IStorage {
     
     const isValid = await bcrypt.compare(password, user.passwordHash);
     return isValid ? user : null;
+  }
+
+  async getClinicalHistories(): Promise<ClinicalHistory[]> {
+    return Array.from(this.clinicalHistories.values());
+  }
+
+  async getClinicalHistory(id: string): Promise<ClinicalHistory | undefined> {
+    return this.clinicalHistories.get(id);
+  }
+
+  async getClinicalHistoryByPatient(patientId: string): Promise<ClinicalHistory | undefined> {
+    return Array.from(this.clinicalHistories.values()).find(h => h.patientId === patientId);
+  }
+
+  async createClinicalHistory(insertHistory: InsertClinicalHistory): Promise<ClinicalHistory> {
+    const id = randomUUID();
+    const history: ClinicalHistory = {
+      id,
+      patientId: insertHistory.patientId,
+      fecha: insertHistory.fecha,
+      recomendacion: this.toNull(insertHistory.recomendacion),
+      peso: this.toNull(insertHistory.peso),
+      estatura: this.toNull(insertHistory.estatura),
+      padecimientoActual: this.toNull(insertHistory.padecimientoActual),
+      tratamientoPrevio: this.toNull(insertHistory.tratamientoPrevio),
+      tratamientoRestaurativo: this.toNull(insertHistory.tratamientoRestaurativo),
+      antecedentesPatologicos: this.toNull(insertHistory.antecedentesPatologicos),
+      habitosSalud: this.toNull(insertHistory.habitosSalud),
+      sintomatologia: this.toNull(insertHistory.sintomatologia),
+      diagnosticosPrevios: insertHistory.diagnosticosPrevios || null,
+      medicosTratantes: insertHistory.medicosTratantes || null,
+      estudiosRealizados: this.toNull(insertHistory.estudiosRealizados),
+      nivelDolor: insertHistory.nivelDolor ?? null,
+      createdAt: new Date(),
+      updatedAt: null
+    };
+    this.clinicalHistories.set(id, history);
+    return history;
+  }
+
+  async updateClinicalHistory(id: string, updates: Partial<InsertClinicalHistory>): Promise<ClinicalHistory | undefined> {
+    const history = this.clinicalHistories.get(id);
+    if (!history) return undefined;
+    
+    const cleaned = this.cleanUpdates(updates);
+    const updatedHistory: ClinicalHistory = { 
+      ...history, 
+      ...cleaned,
+      updatedAt: new Date()
+    };
+    this.clinicalHistories.set(id, updatedHistory);
+    return updatedHistory;
   }
 }
 

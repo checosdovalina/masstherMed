@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -93,6 +93,38 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+export const clinicalHistories = pgTable("clinical_histories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientId: varchar("patient_id").notNull().unique(),
+  fecha: timestamp("fecha").notNull(),
+  recomendacion: text("recomendacion"),
+  
+  peso: text("peso"),
+  estatura: text("estatura"),
+  
+  padecimientoActual: text("padecimiento_actual"),
+  tratamientoPrevio: text("tratamiento_previo"),
+  
+  tratamientoRestaurativo: json("tratamiento_restaurativo").$type<Record<string, { tiene: boolean; especifique: string }>>(),
+  antecedentesPatologicos: json("antecedentes_patologicos").$type<Record<string, { tiene: boolean; especifique: string }>>(),
+  habitosSalud: json("habitos_salud").$type<{ tiene: boolean; especifique: string }>(),
+  sintomatologia: json("sintomatologia").$type<{
+    dolor: { tiene: boolean; tipo: string; frecuencia: string };
+    inflamacion: { tiene: boolean; tipo: string; frecuencia: string };
+    adormecimiento: { tiene: boolean; tipo: string; frecuencia: string };
+    hormigueo: { tiene: boolean };
+  }>(),
+  
+  diagnosticosPrevios: text("diagnosticos_previos").array(),
+  medicosTratantes: text("medicos_tratantes").array(),
+  
+  estudiosRealizados: json("estudios_realizados").$type<Record<string, boolean>>(),
+  nivelDolor: integer("nivel_dolor"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at"),
+});
+
 export const insertTherapyTypeSchema = createInsertSchema(therapyTypes).omit({
   id: true,
 });
@@ -137,6 +169,14 @@ export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
 });
 
+export const insertClinicalHistorySchema = createInsertSchema(clinicalHistories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  nivelDolor: z.number().int().min(0).max(10).optional(),
+});
+
 export const loginSchema = z.object({
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
@@ -166,3 +206,6 @@ export type InsertProtocolAssignment = z.infer<typeof insertProtocolAssignmentSc
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginCredentials = z.infer<typeof loginSchema>;
+
+export type ClinicalHistory = typeof clinicalHistories.$inferSelect;
+export type InsertClinicalHistory = z.infer<typeof insertClinicalHistorySchema>;
