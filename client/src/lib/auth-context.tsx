@@ -24,7 +24,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  const { data: sessionData, isLoading } = useQuery({
+  const { data: sessionData, isLoading } = useQuery<{ user: User } | null>({
     queryKey: ["/api/auth/session"],
     retry: false,
     staleTime: 0,
