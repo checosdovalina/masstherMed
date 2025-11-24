@@ -11,6 +11,7 @@ import {
   insertProtocolSchema,
   insertProtocolAssignmentSchema,
   insertClinicalHistorySchema,
+  createUserSchema,
   loginSchema
 } from "@shared/schema";
 
@@ -646,6 +647,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(history);
     } catch (error) {
       res.status(400).json({ error: "Datos de historial clínico inválidos" });
+    }
+  });
+
+  app.get("/api/users", requireAuth, async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      const usersWithoutPassword = users.map(({ passwordHash, ...user }) => user);
+      res.json(usersWithoutPassword);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener usuarios" });
+    }
+  });
+
+  app.get("/api/users/:id", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+      const { passwordHash, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener usuario" });
+    }
+  });
+
+  app.post("/api/users", requireAuth, async (req, res) => {
+    try {
+      const validatedData = createUserSchema.parse(req.body);
+      
+      const existingUser = await storage.getUserByEmail(validatedData.email);
+      if (existingUser) {
+        return res.status(400).json({ error: "Ya existe un usuario con este email" });
+      }
+      
+      const user = await storage.createUser({
+        email: validatedData.email,
+        passwordHash: validatedData.password,
+        name: validatedData.name,
+        role: validatedData.role,
+        therapistId: validatedData.therapistId || null,
+      });
+      
+      const { passwordHash, ...userWithoutPassword } = user;
+      res.status(201).json(userWithoutPassword);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de usuario inválidos" });
+    }
+  });
+
+  app.patch("/api/users/:id", requireAuth, async (req, res) => {
+    try {
+      const updates: any = {};
+      if (req.body.name) updates.name = req.body.name;
+      if (req.body.email) updates.email = req.body.email;
+      if (req.body.role) updates.role = req.body.role;
+      if (req.body.therapistId !== undefined) updates.therapistId = req.body.therapistId || null;
+      if (req.body.password) updates.passwordHash = req.body.password;
+      
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "Debe proporcionar al menos un campo para actualizar" });
+      }
+      
+      const user = await storage.updateUser(req.params.id, updates);
+      if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+      
+      const { passwordHash, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de usuario inválidos" });
+    }
+  });
+
+  app.delete("/api/users/:id", requireAuth, async (req, res) => {
+    try {
+      const currentUserId = req.session.userId;
+      if (currentUserId === req.params.id) {
+        return res.status(400).json({ error: "No puede eliminar su propia cuenta" });
+      }
+      
+      const deleted = await storage.deleteUser(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+      res.json({ message: "Usuario eliminado exitosamente" });
+    } catch (error) {
+      res.status(500).json({ error: "Error al eliminar usuario" });
     }
   });
 

@@ -201,6 +201,20 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
+    const updateData: any = { ...updates };
+    if (updates.passwordHash) {
+      updateData.passwordHash = await bcrypt.hash(updates.passwordHash, 10);
+    }
+    const result = await db.update(users).set(updateData).where(eq(users.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id)).returning();
+    return result.length > 0;
+  }
+
   async verifyPassword(email: string, password: string): Promise<User | null> {
     const user = await this.getUserByEmail(email);
     if (!user) return null;

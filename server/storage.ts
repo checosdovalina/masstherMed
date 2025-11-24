@@ -55,6 +55,8 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: string): Promise<boolean>;
   verifyPassword(email: string, password: string): Promise<User | null>;
   
   getClinicalHistories(): Promise<ClinicalHistory[]>;
@@ -489,6 +491,25 @@ export class MemStorage implements IStorage {
     const hashedPassword = await bcrypt.hash(insertUser.passwordHash, 10);
     const userWithHashedPassword = { ...insertUser, passwordHash: hashedPassword };
     return this.createUserSync(userWithHashedPassword);
+  }
+
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    const updateData: any = { ...updates };
+    if (updates.passwordHash) {
+      updateData.passwordHash = await bcrypt.hash(updates.passwordHash, 10);
+    }
+    
+    const cleaned = this.cleanUpdates(updateData);
+    const updatedUser: User = { ...user, ...cleaned };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    return this.users.delete(id);
   }
 
   async verifyPassword(email: string, password: string): Promise<User | null> {

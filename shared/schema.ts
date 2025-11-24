@@ -164,10 +164,35 @@ export const insertProtocolAssignmentSchema = createInsertSchema(protocolAssignm
   completedSessions: z.number().int().min(0, "No puede ser negativo").default(0),
 });
 
+export const USER_ROLES = {
+  DIRECTOR: "director",
+  THERAPIST: "therapist", 
+  COORDINATOR: "coordinator",
+} as const;
+
+export const USER_ROLE_LABELS: Record<string, string> = {
+  director: "Director Clínico",
+  therapist: "Terapeuta",
+  coordinator: "Coordinador(a)",
+  admin: "Administrador",
+};
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
+}).extend({
+  role: z.enum(["director", "therapist", "coordinator", "admin"]).default("therapist"),
 });
+
+export const createUserSchema = z.object({
+  email: z.string().email("Email inválido"),
+  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+  name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
+  role: z.enum(["director", "therapist", "coordinator"]),
+  therapistId: z.string().optional(),
+});
+
+export type CreateUserInput = z.infer<typeof createUserSchema>;
 
 export const insertClinicalHistorySchema = createInsertSchema(clinicalHistories).omit({
   id: true,
