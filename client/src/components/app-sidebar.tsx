@@ -1,4 +1,4 @@
-import { Calendar, Users, UserCog, LayoutDashboard, FileText, Sparkles, ClipboardList, HeartPulse } from "lucide-react";
+import { Calendar, Users, UserCog, LayoutDashboard, FileText, Sparkles, ClipboardList, HeartPulse, ShieldCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import logoHorizontal from "@assets/MM_Logo_Horizontal_Color_RGB_1762825081671.png";
 import {
@@ -61,6 +61,12 @@ const menuItems = [
     url: "/historial-clinico",
     icon: HeartPulse,
     testId: "link-clinical-history",
+  },
+  {
+    title: "Usuarios",
+    url: "/usuarios",
+    icon: ShieldCheck,
+    testId: "link-users",
   },
 ];
 
