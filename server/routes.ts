@@ -11,8 +11,14 @@ import {
   insertProtocolSchema,
   insertProtocolAssignmentSchema,
   insertClinicalHistorySchema,
+  insertTherapyPackageSchema,
+  insertPackageAlertSchema,
+  insertPackageSessionSchema,
+  insertSessionEvidenceSchema,
+  insertProgressNoteSchema,
   createUserSchema,
-  loginSchema
+  loginSchema,
+  getAlertType
 } from "@shared/schema";
 
 async function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -736,6 +742,332 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Usuario eliminado exitosamente" });
     } catch (error) {
       res.status(500).json({ error: "Error al eliminar usuario" });
+    }
+  });
+
+  app.get("/api/packages", requireAuth, async (req, res) => {
+    try {
+      const packages = await storage.getTherapyPackages();
+      res.json(packages);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener paquetes" });
+    }
+  });
+
+  app.get("/api/packages/:id", requireAuth, async (req, res) => {
+    try {
+      const pkg = await storage.getTherapyPackage(req.params.id);
+      if (!pkg) {
+        return res.status(404).json({ error: "Paquete no encontrado" });
+      }
+      res.json(pkg);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener paquete" });
+    }
+  });
+
+  app.get("/api/packages/patient/:patientId", requireAuth, async (req, res) => {
+    try {
+      const packages = await storage.getTherapyPackagesByPatient(req.params.patientId);
+      res.json(packages);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener paquetes del paciente" });
+    }
+  });
+
+  app.get("/api/packages/patient/:patientId/active", requireAuth, async (req, res) => {
+    try {
+      const pkg = await storage.getActivePackageByPatient(req.params.patientId);
+      res.json(pkg || null);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener paquete activo" });
+    }
+  });
+
+  app.post("/api/packages", requireAuth, async (req, res) => {
+    try {
+      const parsedBody = {
+        ...req.body,
+        purchaseDate: new Date(req.body.purchaseDate),
+        expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined,
+      };
+      
+      const validatedData = insertTherapyPackageSchema.parse(parsedBody);
+      
+      const patient = await storage.getPatient(validatedData.patientId);
+      if (!patient) {
+        return res.status(400).json({ error: "El paciente no existe" });
+      }
+      
+      const activePackage = await storage.getActivePackageByPatient(validatedData.patientId);
+      if (activePackage) {
+        return res.status(400).json({ error: "El paciente ya tiene un paquete activo. Debe finalizarlo antes de crear uno nuevo." });
+      }
+      
+      const pkg = await storage.createTherapyPackage(validatedData);
+      res.status(201).json(pkg);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de paquete inválidos" });
+    }
+  });
+
+  app.patch("/api/packages/:id", requireAuth, async (req, res) => {
+    try {
+      const parsedBody: any = { ...req.body };
+      if (parsedBody.purchaseDate) {
+        parsedBody.purchaseDate = new Date(parsedBody.purchaseDate);
+      }
+      if (parsedBody.expirationDate) {
+        parsedBody.expirationDate = new Date(parsedBody.expirationDate);
+      }
+      
+      const validatedData = insertTherapyPackageSchema.partial().parse(parsedBody);
+      
+      if (Object.keys(validatedData).length === 0) {
+        return res.status(400).json({ error: "Debe proporcionar al menos un campo para actualizar" });
+      }
+      
+      const pkg = await storage.updateTherapyPackage(req.params.id, validatedData);
+      if (!pkg) {
+        return res.status(404).json({ error: "Paquete no encontrado" });
+      }
+      res.json(pkg);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de paquete inválidos" });
+    }
+  });
+
+  app.delete("/api/packages/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteTherapyPackage(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Paquete no encontrado" });
+      }
+      res.json({ message: "Paquete eliminado exitosamente" });
+    } catch (error) {
+      res.status(500).json({ error: "Error al eliminar paquete" });
+    }
+  });
+
+  app.post("/api/packages/:id/use-session", requireAuth, async (req, res) => {
+    try {
+      const pkg = await storage.getTherapyPackage(req.params.id);
+      if (!pkg) {
+        return res.status(404).json({ error: "Paquete no encontrado" });
+      }
+      
+      const remaining = pkg.totalSessions - pkg.sessionsUsed;
+      if (remaining <= 0) {
+        return res.status(400).json({ error: "El paquete no tiene sesiones disponibles" });
+      }
+      
+      const updatedPkg = await storage.usePackageSession(req.params.id);
+      
+      if (updatedPkg) {
+        const newRemaining = updatedPkg.totalSessions - updatedPkg.sessionsUsed;
+        const alertType = getAlertType(newRemaining);
+        
+        if (alertType) {
+          let message = "";
+          switch (alertType) {
+            case "priority_red":
+              message = `¡URGENTE! El paquete "${pkg.name}" tiene solo 1 sesión restante.`;
+              break;
+            case "red":
+              message = `Alerta: El paquete "${pkg.name}" tiene ${newRemaining} sesiones restantes.`;
+              break;
+            case "yellow":
+              message = `Recordatorio: El paquete "${pkg.name}" tiene ${newRemaining} sesiones restantes.`;
+              break;
+          }
+          
+          if (message) {
+            await storage.createPackageAlert({
+              packageId: pkg.id,
+              patientId: pkg.patientId,
+              alertType,
+              message,
+              method: "panel",
+            });
+          }
+        }
+      }
+      
+      res.json(updatedPkg);
+    } catch (error) {
+      res.status(500).json({ error: "Error al usar sesión del paquete" });
+    }
+  });
+
+  app.get("/api/package-alerts", requireAuth, async (req, res) => {
+    try {
+      const alerts = await storage.getPackageAlerts();
+      res.json(alerts);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener alertas" });
+    }
+  });
+
+  app.get("/api/package-alerts/unread", requireAuth, async (req, res) => {
+    try {
+      const alerts = await storage.getUnreadAlerts();
+      res.json(alerts);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener alertas no leídas" });
+    }
+  });
+
+  app.patch("/api/package-alerts/:id/read", requireAuth, async (req, res) => {
+    try {
+      const alert = await storage.markAlertAsRead(req.params.id);
+      if (!alert) {
+        return res.status(404).json({ error: "Alerta no encontrada" });
+      }
+      res.json(alert);
+    } catch (error) {
+      res.status(500).json({ error: "Error al marcar alerta como leída" });
+    }
+  });
+
+  app.get("/api/package-sessions/:packageId", requireAuth, async (req, res) => {
+    try {
+      const sessions = await storage.getPackageSessions(req.params.packageId);
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener sesiones del paquete" });
+    }
+  });
+
+  app.post("/api/package-sessions", requireAuth, async (req, res) => {
+    try {
+      const parsedBody = {
+        ...req.body,
+        sessionDate: new Date(req.body.sessionDate),
+      };
+      
+      const validatedData = insertPackageSessionSchema.parse(parsedBody);
+      
+      const pkg = await storage.getTherapyPackage(validatedData.packageId);
+      if (!pkg) {
+        return res.status(400).json({ error: "El paquete no existe" });
+      }
+      
+      const session = await storage.createPackageSession(validatedData);
+      
+      if (validatedData.attendanceStatus === "attended") {
+        await storage.usePackageSession(validatedData.packageId);
+      }
+      
+      res.status(201).json(session);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de sesión inválidos" });
+    }
+  });
+
+  app.get("/api/session-evidence/:sessionId", requireAuth, async (req, res) => {
+    try {
+      const evidence = await storage.getSessionEvidence(req.params.sessionId);
+      res.json(evidence);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener evidencia" });
+    }
+  });
+
+  app.get("/api/session-evidence/patient/:patientId", requireAuth, async (req, res) => {
+    try {
+      const evidence = await storage.getSessionEvidenceByPatient(req.params.patientId);
+      res.json(evidence);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener evidencia del paciente" });
+    }
+  });
+
+  app.post("/api/session-evidence", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertSessionEvidenceSchema.parse(req.body);
+      
+      const evidence = await storage.createSessionEvidence(validatedData);
+      res.status(201).json(evidence);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de evidencia inválidos" });
+    }
+  });
+
+  app.delete("/api/session-evidence/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteSessionEvidence(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Evidencia no encontrada" });
+      }
+      res.json({ message: "Evidencia eliminada exitosamente" });
+    } catch (error) {
+      res.status(500).json({ error: "Error al eliminar evidencia" });
+    }
+  });
+
+  app.get("/api/progress-notes/:patientId", requireAuth, async (req, res) => {
+    try {
+      const notes = await storage.getProgressNotes(req.params.patientId);
+      res.json(notes);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener notas de progreso" });
+    }
+  });
+
+  app.post("/api/progress-notes", requireAuth, async (req, res) => {
+    try {
+      const parsedBody = {
+        ...req.body,
+        date: new Date(req.body.date),
+        therapistId: req.session.userId,
+      };
+      
+      const validatedData = insertProgressNoteSchema.parse(parsedBody);
+      
+      const patient = await storage.getPatient(validatedData.patientId);
+      if (!patient) {
+        return res.status(400).json({ error: "El paciente no existe" });
+      }
+      
+      const note = await storage.createProgressNote(validatedData);
+      res.status(201).json(note);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de nota inválidos" });
+    }
+  });
+
+  app.patch("/api/progress-notes/:id", requireAuth, async (req, res) => {
+    try {
+      const parsedBody: any = { ...req.body };
+      if (parsedBody.date) {
+        parsedBody.date = new Date(parsedBody.date);
+      }
+      
+      const validatedData = insertProgressNoteSchema.partial().parse(parsedBody);
+      
+      if (Object.keys(validatedData).length === 0) {
+        return res.status(400).json({ error: "Debe proporcionar al menos un campo para actualizar" });
+      }
+      
+      const note = await storage.updateProgressNote(req.params.id, validatedData);
+      if (!note) {
+        return res.status(404).json({ error: "Nota no encontrada" });
+      }
+      res.json(note);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de nota inválidos" });
+    }
+  });
+
+  app.delete("/api/progress-notes/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteProgressNote(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Nota no encontrada" });
+      }
+      res.json({ message: "Nota eliminada exitosamente" });
+    } catch (error) {
+      res.status(500).json({ error: "Error al eliminar nota" });
     }
   });
 

@@ -8,11 +8,18 @@ import {
   type ProtocolAssignment, type InsertProtocolAssignment,
   type User, type InsertUser,
   type ClinicalHistory, type InsertClinicalHistory,
+  type TherapyPackage, type InsertTherapyPackage,
+  type PackageAlert, type InsertPackageAlert,
+  type PackageSession, type InsertPackageSession,
+  type SessionEvidence, type InsertSessionEvidence,
+  type ProgressNote, type InsertProgressNote,
   therapyTypes, therapists, patients, appointments, sessions, 
-  protocols, protocolAssignments, users, clinicalHistories
+  protocols, protocolAssignments, users, clinicalHistories,
+  therapyPackages, packageAlerts, packageSessions, sessionEvidence, progressNotes,
+  calculatePackageStatus
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc, and, or } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import type { IStorage } from "./storage";
 
@@ -248,6 +255,162 @@ export class DbStorage implements IStorage {
       updatedAt: new Date()
     }).where(eq(clinicalHistories.id, id)).returning();
     return result[0];
+  }
+
+  async getTherapyPackages(): Promise<TherapyPackage[]> {
+    return await db.select().from(therapyPackages);
+  }
+
+  async getTherapyPackage(id: string): Promise<TherapyPackage | undefined> {
+    const result = await db.select().from(therapyPackages).where(eq(therapyPackages.id, id));
+    return result[0];
+  }
+
+  async getTherapyPackagesByPatient(patientId: string): Promise<TherapyPackage[]> {
+    return await db.select().from(therapyPackages).where(eq(therapyPackages.patientId, patientId));
+  }
+
+  async getActivePackageByPatient(patientId: string): Promise<TherapyPackage | undefined> {
+    const result = await db.select().from(therapyPackages).where(
+      and(
+        eq(therapyPackages.patientId, patientId),
+        or(
+          eq(therapyPackages.status, "active"),
+          eq(therapyPackages.status, "warning"),
+          eq(therapyPackages.status, "critical")
+        )
+      )
+    );
+    return result[0];
+  }
+
+  async createTherapyPackage(pkg: InsertTherapyPackage): Promise<TherapyPackage> {
+    const result = await db.insert(therapyPackages).values({
+      ...pkg,
+      sessionsUsed: 0
+    }).returning();
+    return result[0];
+  }
+
+  async updateTherapyPackage(id: string, updates: Partial<InsertTherapyPackage>): Promise<TherapyPackage | undefined> {
+    const result = await db.update(therapyPackages).set({
+      ...updates,
+      updatedAt: new Date()
+    }).where(eq(therapyPackages.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteTherapyPackage(id: string): Promise<boolean> {
+    const result = await db.delete(therapyPackages).where(eq(therapyPackages.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async usePackageSession(packageId: string): Promise<TherapyPackage | undefined> {
+    const pkg = await this.getTherapyPackage(packageId);
+    if (!pkg) return undefined;
+    
+    const newSessionsUsed = pkg.sessionsUsed + 1;
+    const newStatus = calculatePackageStatus({
+      totalSessions: pkg.totalSessions,
+      sessionsUsed: newSessionsUsed,
+      expirationDate: pkg.expirationDate
+    });
+    
+    const result = await db.update(therapyPackages).set({
+      sessionsUsed: newSessionsUsed,
+      status: newStatus,
+      updatedAt: new Date()
+    }).where(eq(therapyPackages.id, packageId)).returning();
+    return result[0];
+  }
+
+  async getPackageAlerts(): Promise<PackageAlert[]> {
+    return await db.select().from(packageAlerts).orderBy(desc(packageAlerts.createdAt));
+  }
+
+  async getPackageAlertsByPatient(patientId: string): Promise<PackageAlert[]> {
+    return await db.select().from(packageAlerts).where(eq(packageAlerts.patientId, patientId));
+  }
+
+  async getUnreadAlerts(): Promise<PackageAlert[]> {
+    return await db.select().from(packageAlerts).where(eq(packageAlerts.isRead, "false"));
+  }
+
+  async createPackageAlert(alert: InsertPackageAlert): Promise<PackageAlert> {
+    const result = await db.insert(packageAlerts).values(alert).returning();
+    return result[0];
+  }
+
+  async markAlertAsRead(id: string): Promise<PackageAlert | undefined> {
+    const result = await db.update(packageAlerts).set({
+      isRead: "true"
+    }).where(eq(packageAlerts.id, id)).returning();
+    return result[0];
+  }
+
+  async getPackageSessions(packageId: string): Promise<PackageSession[]> {
+    return await db.select().from(packageSessions).where(eq(packageSessions.packageId, packageId));
+  }
+
+  async getPackageSessionsByPatient(patientId: string): Promise<PackageSession[]> {
+    return await db.select().from(packageSessions).where(eq(packageSessions.patientId, patientId));
+  }
+
+  async createPackageSession(session: InsertPackageSession): Promise<PackageSession> {
+    const result = await db.insert(packageSessions).values(session).returning();
+    return result[0];
+  }
+
+  async updatePackageSession(id: string, updates: Partial<InsertPackageSession>): Promise<PackageSession | undefined> {
+    const result = await db.update(packageSessions).set(updates).where(eq(packageSessions.id, id)).returning();
+    return result[0];
+  }
+
+  async getSessionEvidence(sessionId: string): Promise<SessionEvidence[]> {
+    return await db.select().from(sessionEvidence).where(eq(sessionEvidence.sessionId, sessionId));
+  }
+
+  async getSessionEvidenceByPatient(patientId: string): Promise<SessionEvidence[]> {
+    return await db.select().from(sessionEvidence).where(eq(sessionEvidence.patientId, patientId));
+  }
+
+  async createSessionEvidence(evidence: InsertSessionEvidence): Promise<SessionEvidence> {
+    const result = await db.insert(sessionEvidence).values(evidence).returning();
+    return result[0];
+  }
+
+  async deleteSessionEvidence(id: string): Promise<boolean> {
+    const result = await db.delete(sessionEvidence).where(eq(sessionEvidence.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getProgressNotes(patientId: string): Promise<ProgressNote[]> {
+    return await db.select().from(progressNotes)
+      .where(eq(progressNotes.patientId, patientId))
+      .orderBy(desc(progressNotes.date));
+  }
+
+  async getProgressNote(id: string): Promise<ProgressNote | undefined> {
+    const result = await db.select().from(progressNotes).where(eq(progressNotes.id, id));
+    return result[0];
+  }
+
+  async createProgressNote(note: InsertProgressNote): Promise<ProgressNote> {
+    const result = await db.insert(progressNotes).values(note).returning();
+    return result[0];
+  }
+
+  async updateProgressNote(id: string, updates: Partial<InsertProgressNote>): Promise<ProgressNote | undefined> {
+    const result = await db.update(progressNotes).set({
+      ...updates,
+      updatedAt: new Date()
+    }).where(eq(progressNotes.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteProgressNote(id: string): Promise<boolean> {
+    const result = await db.delete(progressNotes).where(eq(progressNotes.id, id)).returning();
+    return result.length > 0;
   }
 
   async seedInitialData(): Promise<void> {

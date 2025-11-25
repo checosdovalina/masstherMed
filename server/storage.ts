@@ -7,7 +7,13 @@ import {
   type Protocol, type InsertProtocol,
   type ProtocolAssignment, type InsertProtocolAssignment,
   type User, type InsertUser,
-  type ClinicalHistory, type InsertClinicalHistory
+  type ClinicalHistory, type InsertClinicalHistory,
+  type TherapyPackage, type InsertTherapyPackage,
+  type PackageAlert, type InsertPackageAlert,
+  type PackageSession, type InsertPackageSession,
+  type SessionEvidence, type InsertSessionEvidence,
+  type ProgressNote, type InsertProgressNote,
+  calculatePackageStatus
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcrypt";
@@ -64,6 +70,37 @@ export interface IStorage {
   getClinicalHistoryByPatient(patientId: string): Promise<ClinicalHistory | undefined>;
   createClinicalHistory(history: InsertClinicalHistory): Promise<ClinicalHistory>;
   updateClinicalHistory(id: string, history: Partial<InsertClinicalHistory>): Promise<ClinicalHistory | undefined>;
+  
+  getTherapyPackages(): Promise<TherapyPackage[]>;
+  getTherapyPackage(id: string): Promise<TherapyPackage | undefined>;
+  getTherapyPackagesByPatient(patientId: string): Promise<TherapyPackage[]>;
+  getActivePackageByPatient(patientId: string): Promise<TherapyPackage | undefined>;
+  createTherapyPackage(pkg: InsertTherapyPackage): Promise<TherapyPackage>;
+  updateTherapyPackage(id: string, pkg: Partial<InsertTherapyPackage>): Promise<TherapyPackage | undefined>;
+  deleteTherapyPackage(id: string): Promise<boolean>;
+  usePackageSession(packageId: string): Promise<TherapyPackage | undefined>;
+  
+  getPackageAlerts(): Promise<PackageAlert[]>;
+  getPackageAlertsByPatient(patientId: string): Promise<PackageAlert[]>;
+  getUnreadAlerts(): Promise<PackageAlert[]>;
+  createPackageAlert(alert: InsertPackageAlert): Promise<PackageAlert>;
+  markAlertAsRead(id: string): Promise<PackageAlert | undefined>;
+  
+  getPackageSessions(packageId: string): Promise<PackageSession[]>;
+  getPackageSessionsByPatient(patientId: string): Promise<PackageSession[]>;
+  createPackageSession(session: InsertPackageSession): Promise<PackageSession>;
+  updatePackageSession(id: string, session: Partial<InsertPackageSession>): Promise<PackageSession | undefined>;
+  
+  getSessionEvidence(sessionId: string): Promise<SessionEvidence[]>;
+  getSessionEvidenceByPatient(patientId: string): Promise<SessionEvidence[]>;
+  createSessionEvidence(evidence: InsertSessionEvidence): Promise<SessionEvidence>;
+  deleteSessionEvidence(id: string): Promise<boolean>;
+  
+  getProgressNotes(patientId: string): Promise<ProgressNote[]>;
+  getProgressNote(id: string): Promise<ProgressNote | undefined>;
+  createProgressNote(note: InsertProgressNote): Promise<ProgressNote>;
+  updateProgressNote(id: string, note: Partial<InsertProgressNote>): Promise<ProgressNote | undefined>;
+  deleteProgressNote(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -76,6 +113,11 @@ export class MemStorage implements IStorage {
   private protocolAssignments: Map<string, ProtocolAssignment>;
   private users: Map<string, User>;
   private clinicalHistories: Map<string, ClinicalHistory>;
+  private therapyPackages: Map<string, TherapyPackage>;
+  private packageAlerts: Map<string, PackageAlert>;
+  private packageSessions: Map<string, PackageSession>;
+  private sessionEvidence: Map<string, SessionEvidence>;
+  private progressNotes: Map<string, ProgressNote>;
 
   constructor() {
     this.therapyTypes = new Map();
@@ -87,6 +129,11 @@ export class MemStorage implements IStorage {
     this.protocolAssignments = new Map();
     this.users = new Map();
     this.clinicalHistories = new Map();
+    this.therapyPackages = new Map();
+    this.packageAlerts = new Map();
+    this.packageSessions = new Map();
+    this.sessionEvidence = new Map();
+    this.progressNotes = new Map();
     
     this.seedData();
   }
@@ -570,6 +617,232 @@ export class MemStorage implements IStorage {
     };
     this.clinicalHistories.set(id, updatedHistory);
     return updatedHistory;
+  }
+
+  async getTherapyPackages(): Promise<TherapyPackage[]> {
+    return Array.from(this.therapyPackages.values());
+  }
+
+  async getTherapyPackage(id: string): Promise<TherapyPackage | undefined> {
+    return this.therapyPackages.get(id);
+  }
+
+  async getTherapyPackagesByPatient(patientId: string): Promise<TherapyPackage[]> {
+    return Array.from(this.therapyPackages.values()).filter(p => p.patientId === patientId);
+  }
+
+  async getActivePackageByPatient(patientId: string): Promise<TherapyPackage | undefined> {
+    const packages = await this.getTherapyPackagesByPatient(patientId);
+    return packages.find(p => p.status === "active" || p.status === "warning" || p.status === "critical");
+  }
+
+  async createTherapyPackage(insertPkg: InsertTherapyPackage): Promise<TherapyPackage> {
+    const id = randomUUID();
+    const pkg: TherapyPackage = {
+      id,
+      patientId: insertPkg.patientId,
+      name: insertPkg.name,
+      description: this.toNull(insertPkg.description),
+      totalSessions: insertPkg.totalSessions,
+      sessionsUsed: 0,
+      purchaseDate: insertPkg.purchaseDate,
+      expirationDate: this.toNull(insertPkg.expirationDate),
+      price: this.toNull(insertPkg.price),
+      status: insertPkg.status ?? "active",
+      notes: this.toNull(insertPkg.notes),
+      createdAt: new Date(),
+      updatedAt: null
+    };
+    this.therapyPackages.set(id, pkg);
+    return pkg;
+  }
+
+  async updateTherapyPackage(id: string, updates: Partial<InsertTherapyPackage>): Promise<TherapyPackage | undefined> {
+    const pkg = this.therapyPackages.get(id);
+    if (!pkg) return undefined;
+    
+    const cleaned = this.cleanUpdates(updates);
+    const updatedPkg: TherapyPackage = { 
+      ...pkg, 
+      ...cleaned,
+      updatedAt: new Date()
+    };
+    this.therapyPackages.set(id, updatedPkg);
+    return updatedPkg;
+  }
+
+  async deleteTherapyPackage(id: string): Promise<boolean> {
+    return this.therapyPackages.delete(id);
+  }
+
+  async usePackageSession(packageId: string): Promise<TherapyPackage | undefined> {
+    const pkg = this.therapyPackages.get(packageId);
+    if (!pkg) return undefined;
+    
+    const newSessionsUsed = pkg.sessionsUsed + 1;
+    const newStatus = calculatePackageStatus({
+      totalSessions: pkg.totalSessions,
+      sessionsUsed: newSessionsUsed,
+      expirationDate: pkg.expirationDate
+    });
+    
+    const updatedPkg: TherapyPackage = {
+      ...pkg,
+      sessionsUsed: newSessionsUsed,
+      status: newStatus,
+      updatedAt: new Date()
+    };
+    this.therapyPackages.set(packageId, updatedPkg);
+    return updatedPkg;
+  }
+
+  async getPackageAlerts(): Promise<PackageAlert[]> {
+    return Array.from(this.packageAlerts.values());
+  }
+
+  async getPackageAlertsByPatient(patientId: string): Promise<PackageAlert[]> {
+    return Array.from(this.packageAlerts.values()).filter(a => a.patientId === patientId);
+  }
+
+  async getUnreadAlerts(): Promise<PackageAlert[]> {
+    return Array.from(this.packageAlerts.values()).filter(a => a.isRead === "false");
+  }
+
+  async createPackageAlert(insertAlert: InsertPackageAlert): Promise<PackageAlert> {
+    const id = randomUUID();
+    const alert: PackageAlert = {
+      id,
+      packageId: insertAlert.packageId,
+      patientId: insertAlert.patientId,
+      alertType: insertAlert.alertType,
+      message: insertAlert.message,
+      method: insertAlert.method ?? "panel",
+      isRead: "false",
+      createdAt: new Date()
+    };
+    this.packageAlerts.set(id, alert);
+    return alert;
+  }
+
+  async markAlertAsRead(id: string): Promise<PackageAlert | undefined> {
+    const alert = this.packageAlerts.get(id);
+    if (!alert) return undefined;
+    
+    const updatedAlert: PackageAlert = { ...alert, isRead: "true" };
+    this.packageAlerts.set(id, updatedAlert);
+    return updatedAlert;
+  }
+
+  async getPackageSessions(packageId: string): Promise<PackageSession[]> {
+    return Array.from(this.packageSessions.values()).filter(s => s.packageId === packageId);
+  }
+
+  async getPackageSessionsByPatient(patientId: string): Promise<PackageSession[]> {
+    return Array.from(this.packageSessions.values()).filter(s => s.patientId === patientId);
+  }
+
+  async createPackageSession(insertSession: InsertPackageSession): Promise<PackageSession> {
+    const id = randomUUID();
+    const session: PackageSession = {
+      id,
+      packageId: insertSession.packageId,
+      patientId: insertSession.patientId,
+      sessionDate: insertSession.sessionDate,
+      sessionType: this.toNull(insertSession.sessionType),
+      attendanceStatus: insertSession.attendanceStatus ?? "attended",
+      therapistId: this.toNull(insertSession.therapistId),
+      notes: this.toNull(insertSession.notes),
+      adminNote: this.toNull(insertSession.adminNote),
+      createdAt: new Date()
+    };
+    this.packageSessions.set(id, session);
+    return session;
+  }
+
+  async updatePackageSession(id: string, updates: Partial<InsertPackageSession>): Promise<PackageSession | undefined> {
+    const session = this.packageSessions.get(id);
+    if (!session) return undefined;
+    
+    const cleaned = this.cleanUpdates(updates);
+    const updatedSession: PackageSession = { ...session, ...cleaned };
+    this.packageSessions.set(id, updatedSession);
+    return updatedSession;
+  }
+
+  async getSessionEvidence(sessionId: string): Promise<SessionEvidence[]> {
+    return Array.from(this.sessionEvidence.values()).filter(e => e.sessionId === sessionId);
+  }
+
+  async getSessionEvidenceByPatient(patientId: string): Promise<SessionEvidence[]> {
+    return Array.from(this.sessionEvidence.values()).filter(e => e.patientId === patientId);
+  }
+
+  async createSessionEvidence(insertEvidence: InsertSessionEvidence): Promise<SessionEvidence> {
+    const id = randomUUID();
+    const evidence: SessionEvidence = {
+      id,
+      sessionId: insertEvidence.sessionId,
+      patientId: insertEvidence.patientId,
+      fileName: insertEvidence.fileName,
+      fileType: insertEvidence.fileType,
+      fileUrl: insertEvidence.fileUrl,
+      description: this.toNull(insertEvidence.description),
+      category: insertEvidence.category ?? "general",
+      createdAt: new Date()
+    };
+    this.sessionEvidence.set(id, evidence);
+    return evidence;
+  }
+
+  async deleteSessionEvidence(id: string): Promise<boolean> {
+    return this.sessionEvidence.delete(id);
+  }
+
+  async getProgressNotes(patientId: string): Promise<ProgressNote[]> {
+    return Array.from(this.progressNotes.values())
+      .filter(n => n.patientId === patientId)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  async getProgressNote(id: string): Promise<ProgressNote | undefined> {
+    return this.progressNotes.get(id);
+  }
+
+  async createProgressNote(insertNote: InsertProgressNote): Promise<ProgressNote> {
+    const id = randomUUID();
+    const note: ProgressNote = {
+      id,
+      patientId: insertNote.patientId,
+      sessionId: this.toNull(insertNote.sessionId),
+      therapistId: insertNote.therapistId,
+      date: insertNote.date,
+      title: insertNote.title,
+      content: insertNote.content,
+      category: insertNote.category ?? "general",
+      isPrivate: insertNote.isPrivate ?? "false",
+      createdAt: new Date(),
+      updatedAt: null
+    };
+    this.progressNotes.set(id, note);
+    return note;
+  }
+
+  async updateProgressNote(id: string, updates: Partial<InsertProgressNote>): Promise<ProgressNote | undefined> {
+    const note = this.progressNotes.get(id);
+    if (!note) return undefined;
+    
+    const cleaned = this.cleanUpdates(updates);
+    const updatedNote: ProgressNote = { 
+      ...note, 
+      ...cleaned,
+      updatedAt: new Date()
+    };
+    this.progressNotes.set(id, updatedNote);
+    return updatedNote;
+  }
+
+  async deleteProgressNote(id: string): Promise<boolean> {
+    return this.progressNotes.delete(id);
   }
 }
 
