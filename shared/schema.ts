@@ -195,6 +195,32 @@ export const packageSessions = pgTable("package_sessions", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+export const sessionEvidence = pgTable("session_evidence", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull(),
+  patientId: varchar("patient_id").notNull(),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(),
+  fileUrl: text("file_url").notNull(),
+  description: text("description"),
+  category: text("category").notNull().default("general"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const progressNotes = pgTable("progress_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientId: varchar("patient_id").notNull(),
+  sessionId: varchar("session_id"),
+  therapistId: varchar("therapist_id").notNull(),
+  date: timestamp("date").notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  category: text("category").notNull().default("general"),
+  isPrivate: text("is_private").notNull().default("false"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at"),
+});
+
 export const insertTherapyTypeSchema = createInsertSchema(therapyTypes).omit({
   id: true,
 });
@@ -272,6 +298,47 @@ export const insertClinicalHistorySchema = createInsertSchema(clinicalHistories)
   nivelDolor: z.number().int().min(0).max(10).optional(),
 });
 
+export const insertTherapyPackageSchema = createInsertSchema(therapyPackages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  sessionsUsed: true,
+}).extend({
+  totalSessions: z.number().int().min(1, "Debe tener al menos 1 sesión"),
+  price: z.string().optional(),
+  status: z.enum(["active", "warning", "critical", "finished", "expired"]).default("active"),
+});
+
+export const insertPackageAlertSchema = createInsertSchema(packageAlerts).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  alertType: z.enum(["yellow", "red", "priority_red", "expired", "expiring_soon"]),
+  method: z.enum(["panel", "email", "app"]).default("panel"),
+});
+
+export const insertPackageSessionSchema = createInsertSchema(packageSessions).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  attendanceStatus: z.enum(["attended", "cancelled", "no_show"]).default("attended"),
+});
+
+export const insertSessionEvidenceSchema = createInsertSchema(sessionEvidence).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  category: z.enum(["general", "before", "after", "xray", "document", "photo"]).default("general"),
+});
+
+export const insertProgressNoteSchema = createInsertSchema(progressNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  category: z.enum(["general", "assessment", "treatment", "follow_up", "observation"]).default("general"),
+});
+
 export const loginSchema = z.object({
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
@@ -304,3 +371,47 @@ export type LoginCredentials = z.infer<typeof loginSchema>;
 
 export type ClinicalHistory = typeof clinicalHistories.$inferSelect;
 export type InsertClinicalHistory = z.infer<typeof insertClinicalHistorySchema>;
+
+export type TherapyPackage = typeof therapyPackages.$inferSelect;
+export type InsertTherapyPackage = z.infer<typeof insertTherapyPackageSchema>;
+
+export type PackageAlert = typeof packageAlerts.$inferSelect;
+export type InsertPackageAlert = z.infer<typeof insertPackageAlertSchema>;
+
+export type PackageSession = typeof packageSessions.$inferSelect;
+export type InsertPackageSession = z.infer<typeof insertPackageSessionSchema>;
+
+export type SessionEvidence = typeof sessionEvidence.$inferSelect;
+export type InsertSessionEvidence = z.infer<typeof insertSessionEvidenceSchema>;
+
+export type ProgressNote = typeof progressNotes.$inferSelect;
+export type InsertProgressNote = z.infer<typeof insertProgressNoteSchema>;
+
+export function calculatePackageStatus(pkg: { totalSessions: number; sessionsUsed: number; expirationDate: Date | null }): string {
+  const remaining = pkg.totalSessions - pkg.sessionsUsed;
+  
+  if (pkg.expirationDate && new Date() > new Date(pkg.expirationDate)) {
+    return PACKAGE_STATUS.EXPIRED;
+  }
+  
+  if (remaining <= 0) {
+    return PACKAGE_STATUS.FINISHED;
+  }
+  
+  if (remaining <= 3) {
+    return PACKAGE_STATUS.CRITICAL;
+  }
+  
+  if (remaining <= 5) {
+    return PACKAGE_STATUS.WARNING;
+  }
+  
+  return PACKAGE_STATUS.ACTIVE;
+}
+
+export function getAlertType(remaining: number): string | null {
+  if (remaining === 1) return ALERT_TYPES.PRIORITY_RED;
+  if (remaining <= 3) return ALERT_TYPES.RED;
+  if (remaining <= 5) return ALERT_TYPES.YELLOW;
+  return null;
+}
