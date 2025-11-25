@@ -1,7 +1,37 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, json } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, json, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+export const PACKAGE_STATUS = {
+  ACTIVE: "active",
+  WARNING: "warning",
+  CRITICAL: "critical",
+  FINISHED: "finished",
+  EXPIRED: "expired",
+} as const;
+
+export const PACKAGE_STATUS_LABELS: Record<string, string> = {
+  active: "Activo",
+  warning: "Por terminar",
+  critical: "Crítico",
+  finished: "Terminado",
+  expired: "Expirado",
+};
+
+export const ALERT_TYPES = {
+  YELLOW: "yellow",
+  RED: "red",
+  PRIORITY_RED: "priority_red",
+  EXPIRED: "expired",
+  EXPIRING_SOON: "expiring_soon",
+} as const;
+
+export const ATTENDANCE_STATUS = {
+  ATTENDED: "attended",
+  CANCELLED: "cancelled",
+  NO_SHOW: "no_show",
+} as const;
 
 export const therapyTypes = pgTable("therapy_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -123,6 +153,46 @@ export const clinicalHistories = pgTable("clinical_histories", {
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at"),
+});
+
+export const therapyPackages = pgTable("therapy_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientId: varchar("patient_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  totalSessions: integer("total_sessions").notNull(),
+  sessionsUsed: integer("sessions_used").notNull().default(0),
+  purchaseDate: timestamp("purchase_date").notNull(),
+  expirationDate: timestamp("expiration_date"),
+  price: numeric("price", { precision: 10, scale: 2 }),
+  status: text("status").notNull().default("active"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const packageAlerts = pgTable("package_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  packageId: varchar("package_id").notNull(),
+  patientId: varchar("patient_id").notNull(),
+  alertType: text("alert_type").notNull(),
+  message: text("message").notNull(),
+  method: text("method").notNull().default("panel"),
+  isRead: text("is_read").notNull().default("false"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const packageSessions = pgTable("package_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  packageId: varchar("package_id").notNull(),
+  patientId: varchar("patient_id").notNull(),
+  sessionDate: timestamp("session_date").notNull(),
+  sessionType: text("session_type"),
+  attendanceStatus: text("attendance_status").notNull().default("attended"),
+  therapistId: varchar("therapist_id"),
+  notes: text("notes"),
+  adminNote: text("admin_note"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 export const insertTherapyTypeSchema = createInsertSchema(therapyTypes).omit({
