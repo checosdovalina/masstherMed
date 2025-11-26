@@ -336,7 +336,7 @@ export const insertProgressNoteSchema = createInsertSchema(progressNotes).omit({
   createdAt: true,
   updatedAt: true,
 }).extend({
-  category: z.enum(["general", "assessment", "treatment", "follow_up", "observation"]).default("general"),
+  category: z.enum(["general", "improvement", "concern", "milestone", "observation"]).default("general"),
 });
 
 export const loginSchema = z.object({
