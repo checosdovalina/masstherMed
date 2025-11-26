@@ -13,6 +13,7 @@ import {
   type PackageSession, type InsertPackageSession,
   type SessionEvidence, type InsertSessionEvidence,
   type ProgressNote, type InsertProgressNote,
+  type AppointmentRequest, type InsertAppointmentRequest,
   calculatePackageStatus
 } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -101,6 +102,12 @@ export interface IStorage {
   createProgressNote(note: InsertProgressNote): Promise<ProgressNote>;
   updateProgressNote(id: string, note: Partial<InsertProgressNote>): Promise<ProgressNote | undefined>;
   deleteProgressNote(id: string): Promise<boolean>;
+  
+  getAppointmentRequests(): Promise<AppointmentRequest[]>;
+  getAppointmentRequest(id: string): Promise<AppointmentRequest | undefined>;
+  createAppointmentRequest(request: InsertAppointmentRequest): Promise<AppointmentRequest>;
+  updateAppointmentRequest(id: string, request: Partial<AppointmentRequest>): Promise<AppointmentRequest | undefined>;
+  deleteAppointmentRequest(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -843,6 +850,50 @@ export class MemStorage implements IStorage {
 
   async deleteProgressNote(id: string): Promise<boolean> {
     return this.progressNotes.delete(id);
+  }
+
+  private appointmentRequests: Map<string, AppointmentRequest> = new Map();
+
+  async getAppointmentRequests(): Promise<AppointmentRequest[]> {
+    return Array.from(this.appointmentRequests.values())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getAppointmentRequest(id: string): Promise<AppointmentRequest | undefined> {
+    return this.appointmentRequests.get(id);
+  }
+
+  async createAppointmentRequest(request: InsertAppointmentRequest): Promise<AppointmentRequest> {
+    const id = randomUUID();
+    const newRequest: AppointmentRequest = {
+      id,
+      name: request.name,
+      phone: request.phone,
+      email: this.toNull(request.email),
+      preferredDate: this.toNull(request.preferredDate),
+      preferredTime: this.toNull(request.preferredTime),
+      serviceType: this.toNull(request.serviceType),
+      message: this.toNull(request.message),
+      status: request.status ?? "pending",
+      notes: this.toNull(request.notes),
+      createdAt: new Date(),
+      processedAt: null,
+      processedBy: null
+    };
+    this.appointmentRequests.set(id, newRequest);
+    return newRequest;
+  }
+
+  async updateAppointmentRequest(id: string, updates: Partial<AppointmentRequest>): Promise<AppointmentRequest | undefined> {
+    const request = this.appointmentRequests.get(id);
+    if (!request) return undefined;
+    const updatedRequest: AppointmentRequest = { ...request, ...updates };
+    this.appointmentRequests.set(id, updatedRequest);
+    return updatedRequest;
+  }
+
+  async deleteAppointmentRequest(id: string): Promise<boolean> {
+    return this.appointmentRequests.delete(id);
   }
 }
 

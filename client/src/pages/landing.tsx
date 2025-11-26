@@ -1,13 +1,66 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Users, Calendar, Heart, ArrowRight, Award, Clock, Shield, Target, TrendingUp, CheckCircle2, MapPin, Phone, Mail, Star } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Activity, Users, Calendar, Heart, ArrowRight, Award, Clock, Shield, Target, TrendingUp, CheckCircle2, MapPin, Phone, Mail, Star, Send } from "lucide-react";
 import logoHorizontal from "@assets/MM_Logo_Horizontal_Color_RGB_1762825081671.png";
 import heroImage from "@assets/stock_images/professional_therape_1de7ca21.jpg";
 import treatmentImage from "@assets/stock_images/professional_therape_b5bc45ef.jpg";
 import clinicImage from "@assets/stock_images/professional_therape_d11a459b.jpg";
 
 export default function Landing() {
+  const [appointmentModalOpen, setAppointmentModalOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    preferredDate: "",
+    preferredTime: "",
+    serviceType: "",
+    message: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      const response = await fetch("/api/appointment-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
+      });
+      
+      if (response.ok) {
+        setSubmitSuccess(true);
+        setFormData({
+          name: "",
+          phone: "",
+          email: "",
+          preferredDate: "",
+          preferredTime: "",
+          serviceType: "",
+          message: ""
+        });
+        setTimeout(() => {
+          setAppointmentModalOpen(false);
+          setSubmitSuccess(false);
+        }, 3000);
+      }
+    } catch (error) {
+      console.error("Error al enviar solicitud:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
@@ -420,16 +473,16 @@ export default function Landing() {
               </CardContent>
             </Card>
 
-            <Card className="text-center hover-elevate">
+            <Card className="text-center hover-elevate cursor-pointer" onClick={() => setAppointmentModalOpen(true)} data-testid="card-appointment-request">
               <CardContent className="pt-8 pb-8">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <Calendar className="h-8 w-8 text-primary" />
                 </div>
                 <h4 className="font-semibold mb-2">Cita Online</h4>
                 <p className="text-muted-foreground">Agenda desde aquí</p>
-                <Link href="/login" className="text-primary font-medium hover:underline mt-2 block">
-                  Sistema de Citas
-                </Link>
+                <span className="text-primary font-medium hover:underline mt-2 block">
+                  Solicitar Cita
+                </span>
               </CardContent>
             </Card>
           </div>
@@ -460,6 +513,124 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      <Dialog open={appointmentModalOpen} onOpenChange={setAppointmentModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Solicitar Cita</DialogTitle>
+            <DialogDescription>
+              Complete el formulario y nos comunicaremos con usted para confirmar su cita.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {submitSuccess ? (
+            <div className="py-8 text-center">
+              <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">¡Solicitud Enviada!</h3>
+              <p className="text-muted-foreground">
+                Nos comunicaremos con usted pronto para confirmar su cita.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label htmlFor="name">Nombre completo *</Label>
+                  <Input 
+                    id="name" 
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    placeholder="Su nombre"
+                    required
+                    data-testid="input-request-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Teléfono *</Label>
+                  <Input 
+                    id="phone" 
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    placeholder="(871) 123 4567"
+                    required
+                    data-testid="input-request-phone"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email">Email (opcional)</Label>
+                  <Input 
+                    id="email" 
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    placeholder="correo@ejemplo.com"
+                    data-testid="input-request-email"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="preferredDate">Fecha preferida</Label>
+                  <Input 
+                    id="preferredDate" 
+                    type="date"
+                    value={formData.preferredDate}
+                    onChange={(e) => setFormData({...formData, preferredDate: e.target.value})}
+                    data-testid="input-request-date"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="preferredTime">Horario preferido</Label>
+                  <Select value={formData.preferredTime} onValueChange={(value) => setFormData({...formData, preferredTime: value})}>
+                    <SelectTrigger data-testid="select-request-time">
+                      <SelectValue placeholder="Seleccione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="morning">Mañana (9-12)</SelectItem>
+                      <SelectItem value="afternoon">Tarde (12-16)</SelectItem>
+                      <SelectItem value="evening">Vespertino (16-19)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="serviceType">Tipo de servicio</Label>
+                  <Select value={formData.serviceType} onValueChange={(value) => setFormData({...formData, serviceType: value})}>
+                    <SelectTrigger data-testid="select-request-service">
+                      <SelectValue placeholder="Seleccione un servicio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="masaje-terapeutico">Masaje Terapéutico</SelectItem>
+                      <SelectItem value="terapia-fisica">Terapia Física</SelectItem>
+                      <SelectItem value="rehabilitacion">Rehabilitación</SelectItem>
+                      <SelectItem value="consulta">Primera Consulta</SelectItem>
+                      <SelectItem value="otro">Otro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="message">Mensaje (opcional)</Label>
+                  <Textarea 
+                    id="message"
+                    value={formData.message}
+                    onChange={(e) => setFormData({...formData, message: e.target.value})}
+                    placeholder="Cuéntenos brevemente sobre su padecimiento o necesidad..."
+                    rows={3}
+                    data-testid="input-request-message"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setAppointmentModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={isSubmitting || !formData.name || !formData.phone} data-testid="button-submit-request">
+                  {isSubmitting ? "Enviando..." : "Enviar Solicitud"}
+                  <Send className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <footer className="border-t py-12 px-4 sm:px-6 lg:px-8 bg-card">
         <div className="max-w-7xl mx-auto">

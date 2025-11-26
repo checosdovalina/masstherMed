@@ -387,6 +387,36 @@ export type InsertSessionEvidence = z.infer<typeof insertSessionEvidenceSchema>;
 export type ProgressNote = typeof progressNotes.$inferSelect;
 export type InsertProgressNote = z.infer<typeof insertProgressNoteSchema>;
 
+export const appointmentRequests = pgTable("appointment_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  phone: text("phone").notNull(),
+  email: text("email"),
+  preferredDate: text("preferred_date"),
+  preferredTime: text("preferred_time"),
+  serviceType: text("service_type"),
+  message: text("message"),
+  status: text("status").notNull().default("pending"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  processedAt: timestamp("processed_at"),
+  processedBy: varchar("processed_by"),
+});
+
+export const insertAppointmentRequestSchema = createInsertSchema(appointmentRequests).omit({
+  id: true,
+  createdAt: true,
+  processedAt: true,
+  processedBy: true,
+}).extend({
+  name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
+  phone: z.string().min(10, "El teléfono debe tener al menos 10 dígitos"),
+  email: z.string().email("Email inválido").optional().or(z.literal("")),
+});
+
+export type AppointmentRequest = typeof appointmentRequests.$inferSelect;
+export type InsertAppointmentRequest = z.infer<typeof insertAppointmentRequestSchema>;
+
 export function calculatePackageStatus(pkg: { totalSessions: number; sessionsUsed: number; expirationDate: Date | null }): string {
   const remaining = pkg.totalSessions - pkg.sessionsUsed;
   

@@ -16,6 +16,7 @@ import {
   insertPackageSessionSchema,
   insertSessionEvidenceSchema,
   insertProgressNoteSchema,
+  insertAppointmentRequestSchema,
   createUserSchema,
   loginSchema,
   getAlertType
@@ -885,7 +886,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.createPackageAlert({
               packageId: pkg.id,
               patientId: pkg.patientId,
-              alertType,
+              alertType: alertType as "red" | "yellow" | "priority_red",
               message,
               method: "panel",
             });
@@ -1068,6 +1069,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Nota eliminada exitosamente" });
     } catch (error) {
       res.status(500).json({ error: "Error al eliminar nota" });
+    }
+  });
+
+  // Appointment Requests - Public endpoint for landing page form
+  app.post("/api/appointment-requests", async (req, res) => {
+    try {
+      const validatedData = insertAppointmentRequestSchema.parse(req.body);
+      const request = await storage.createAppointmentRequest(validatedData);
+      res.status(201).json(request);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de solicitud inválidos" });
+    }
+  });
+
+  // Protected endpoints for managing appointment requests
+  app.get("/api/appointment-requests", requireAuth, async (req, res) => {
+    try {
+      const requests = await storage.getAppointmentRequests();
+      res.json(requests);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener solicitudes" });
+    }
+  });
+
+  app.get("/api/appointment-requests/:id", requireAuth, async (req, res) => {
+    try {
+      const request = await storage.getAppointmentRequest(req.params.id);
+      if (!request) {
+        return res.status(404).json({ error: "Solicitud no encontrada" });
+      }
+      res.json(request);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener solicitud" });
+    }
+  });
+
+  app.patch("/api/appointment-requests/:id", requireAuth, async (req, res) => {
+    try {
+      const request = await storage.updateAppointmentRequest(req.params.id, {
+        ...req.body,
+        processedAt: req.body.status === "processed" ? new Date() : undefined,
+        processedBy: req.body.status === "processed" ? req.session.userId : undefined
+      });
+      if (!request) {
+        return res.status(404).json({ error: "Solicitud no encontrada" });
+      }
+      res.json(request);
+    } catch (error) {
+      res.status(400).json({ error: "Datos de solicitud inválidos" });
+    }
+  });
+
+  app.delete("/api/appointment-requests/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteAppointmentRequest(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Solicitud no encontrada" });
+      }
+      res.json({ message: "Solicitud eliminada exitosamente" });
+    } catch (error) {
+      res.status(500).json({ error: "Error al eliminar solicitud" });
     }
   });
 

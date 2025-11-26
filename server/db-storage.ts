@@ -13,9 +13,11 @@ import {
   type PackageSession, type InsertPackageSession,
   type SessionEvidence, type InsertSessionEvidence,
   type ProgressNote, type InsertProgressNote,
+  type AppointmentRequest, type InsertAppointmentRequest,
   therapyTypes, therapists, patients, appointments, sessions, 
   protocols, protocolAssignments, users, clinicalHistories,
   therapyPackages, packageAlerts, packageSessions, sessionEvidence, progressNotes,
+  appointmentRequests,
   calculatePackageStatus
 } from "@shared/schema";
 import { db } from "./db";
@@ -410,6 +412,30 @@ export class DbStorage implements IStorage {
 
   async deleteProgressNote(id: string): Promise<boolean> {
     const result = await db.delete(progressNotes).where(eq(progressNotes.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getAppointmentRequests(): Promise<AppointmentRequest[]> {
+    return await db.select().from(appointmentRequests).orderBy(desc(appointmentRequests.createdAt));
+  }
+
+  async getAppointmentRequest(id: string): Promise<AppointmentRequest | undefined> {
+    const result = await db.select().from(appointmentRequests).where(eq(appointmentRequests.id, id));
+    return result[0];
+  }
+
+  async createAppointmentRequest(request: InsertAppointmentRequest): Promise<AppointmentRequest> {
+    const result = await db.insert(appointmentRequests).values(request).returning();
+    return result[0];
+  }
+
+  async updateAppointmentRequest(id: string, updates: Partial<AppointmentRequest>): Promise<AppointmentRequest | undefined> {
+    const result = await db.update(appointmentRequests).set(updates).where(eq(appointmentRequests.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteAppointmentRequest(id: string): Promise<boolean> {
+    const result = await db.delete(appointmentRequests).where(eq(appointmentRequests.id, id)).returning();
     return result.length > 0;
   }
 

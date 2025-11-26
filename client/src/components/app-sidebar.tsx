@@ -1,4 +1,4 @@
-import { Calendar, Users, UserCog, LayoutDashboard, FileText, Sparkles, ClipboardList, HeartPulse, ShieldCheck, Package } from "lucide-react";
+import { Calendar, Users, UserCog, LayoutDashboard, FileText, Sparkles, ClipboardList, HeartPulse, ShieldCheck, Package, MessageSquare } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import logoHorizontal from "@assets/MM_Logo_Horizontal_Color_RGB_1762825081671.png";
 import {
@@ -67,6 +67,12 @@ const menuItems = [
     url: "/paquetes",
     icon: Package,
     testId: "link-packages",
+  },
+  {
+    title: "Solicitudes",
+    url: "/solicitudes",
+    icon: MessageSquare,
+    testId: "link-requests",
   },
   {
     title: "Usuarios",

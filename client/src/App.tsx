@@ -24,6 +24,7 @@ import Records from "@/pages/records";
 import ClinicalHistory from "@/pages/clinical-history";
 import Usuarios from "@/pages/usuarios";
 import Packages from "@/pages/packages";
+import Requests from "@/pages/requests";
 import NotFound from "@/pages/not-found";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -97,6 +98,7 @@ function DashboardLayout() {
               <Route path="/expedientes" component={Records} />
               <Route path="/historial-clinico" component={ClinicalHistory} />
               <Route path="/paquetes" component={Packages} />
+              <Route path="/solicitudes" component={Requests} />
               <Route path="/usuarios" component={Usuarios} />
               <Route component={NotFound} />
             </Switch>
