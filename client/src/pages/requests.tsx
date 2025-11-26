@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { 
   MessageSquare, Phone, Mail, Calendar, Clock, 
-  CheckCircle2, XCircle, Eye, Trash2, User
+  CheckCircle2, XCircle, Eye, Trash2, User, UserPlus
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -47,6 +48,7 @@ const SERVICE_LABELS: Record<string, string> = {
 
 export default function Requests() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [selectedRequest, setSelectedRequest] = useState<AppointmentRequest | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [notes, setNotes] = useState("");
@@ -54,6 +56,59 @@ export default function Requests() {
 
   const { data: requests, isLoading } = useQuery<AppointmentRequest[]>({
     queryKey: ["/api/appointment-requests"],
+  });
+
+  const createPatientMutation = useMutation({
+    mutationFn: async (request: AppointmentRequest) => {
+      const nameParts = request.name.trim().split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+      
+      const patientData = {
+        firstName,
+        lastName,
+        phone: request.phone,
+        email: request.email || "",
+        dateOfBirth: new Date().toISOString().split("T")[0],
+        gender: "otro",
+        address: "",
+        emergencyContact: "",
+        emergencyPhone: "",
+        medicalHistory: request.message ? `Solicitud original: ${request.message}` : "",
+        allergies: "",
+        medications: "",
+        status: "active",
+      };
+      
+      return await apiRequest("POST", "/api/patients", patientData);
+    },
+    onSuccess: async (response) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
+      
+      if (selectedRequest) {
+        await updateRequestMutation.mutateAsync({
+          id: selectedRequest.id,
+          status: "scheduled",
+          notes: notes ? `${notes}\n[Paciente creado en el sistema]` : "[Paciente creado en el sistema]",
+        });
+      }
+      
+      toast({
+        title: "Paciente creado",
+        description: "Los datos han sido importados como nuevo paciente",
+      });
+      setDetailModalOpen(false);
+      
+      const patient = await response.json();
+      setLocation(`/pacientes/${patient.id}`);
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo crear el paciente",
+      });
+    },
   });
 
   const updateRequestMutation = useMutation({
@@ -349,28 +404,41 @@ export default function Requests() {
                 />
               </div>
 
-              <div className="flex justify-between pt-4">
+              <div className="pt-4 space-y-3">
                 <Button 
-                  variant="destructive" 
-                  size="sm"
-                  onClick={() => deleteRequestMutation.mutate(selectedRequest.id)}
-                  disabled={deleteRequestMutation.isPending}
-                  data-testid="button-delete-request"
+                  className="w-full"
+                  variant="secondary"
+                  onClick={() => createPatientMutation.mutate(selectedRequest)}
+                  disabled={createPatientMutation.isPending}
+                  data-testid="button-create-patient"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Eliminar
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  {createPatientMutation.isPending ? "Creando..." : "Importar como Nuevo Paciente"}
                 </Button>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setDetailModalOpen(false)}>
-                    Cancelar
-                  </Button>
+
+                <div className="flex justify-between">
                   <Button 
-                    onClick={handleUpdateStatus}
-                    disabled={updateRequestMutation.isPending}
-                    data-testid="button-update-request"
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => deleteRequestMutation.mutate(selectedRequest.id)}
+                    disabled={deleteRequestMutation.isPending}
+                    data-testid="button-delete-request"
                   >
-                    {updateRequestMutation.isPending ? "Guardando..." : "Guardar Cambios"}
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Eliminar
                   </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setDetailModalOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button 
+                      onClick={handleUpdateStatus}
+                      disabled={updateRequestMutation.isPending}
+                      data-testid="button-update-request"
+                    >
+                      {updateRequestMutation.isPending ? "Guardando..." : "Guardar Cambios"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
