@@ -135,6 +135,19 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async updateSession(id: string, updates: Partial<InsertSession>): Promise<Session | undefined> {
+    const result = await db.update(sessions)
+      .set(updates)
+      .where(eq(sessions.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteSession(id: string): Promise<boolean> {
+    const result = await db.delete(sessions).where(eq(sessions.id, id)).returning();
+    return result.length > 0;
+  }
+
   async getProtocols(): Promise<Protocol[]> {
     return await db.select().from(protocols);
   }

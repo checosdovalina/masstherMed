@@ -381,6 +381,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/sessions/:id", requireAuth, async (req, res) => {
+    try {
+      const sessionId = req.params.id;
+      const existingSession = await storage.getSession(sessionId);
+      
+      if (!existingSession) {
+        return res.status(404).json({ error: "Sesión no encontrada" });
+      }
+
+      const parsedBody: any = { ...req.body };
+      if (parsedBody.sessionDate) {
+        parsedBody.sessionDate = new Date(parsedBody.sessionDate);
+      }
+      
+      const allowedFields = ['notes', 'observations', 'progress', 'duration', 'sessionDate', 'therapistId', 'therapyTypeId'];
+      const updates: any = {};
+      
+      for (const key of Object.keys(parsedBody)) {
+        if (allowedFields.includes(key)) {
+          updates[key] = parsedBody[key];
+        }
+      }
+      
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "Debe proporcionar al menos un campo para actualizar" });
+      }
+      
+      const validatedData = insertSessionSchema.partial().parse(updates);
+      const session = await storage.updateSession(sessionId, validatedData);
+      
+      if (!session) {
+        return res.status(404).json({ error: "Sesión no encontrada" });
+      }
+      
+      res.json(session);
+    } catch (error) {
+      console.error("Error updating session:", error);
+      res.status(400).json({ error: "Error al actualizar la sesión" });
+    }
+  });
+
+  app.delete("/api/sessions/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteSession(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Sesión no encontrada" });
+      }
+      res.json({ message: "Sesión eliminada exitosamente" });
+    } catch (error) {
+      res.status(500).json({ error: "Error al eliminar la sesión" });
+    }
+  });
+
   app.get("/api/protocols", requireAuth, async (req, res) => {
     try {
       const protocols = await storage.getProtocols();

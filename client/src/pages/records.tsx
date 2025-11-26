@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, FileText, Search, Image, File, Camera, Trash2, Calendar, User, TrendingUp, X } from "lucide-react";
+import { Plus, FileText, Search, Image, File, Camera, Trash2, Calendar, User, TrendingUp, X, Edit, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,9 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { SessionForm } from "@/components/session-form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -558,16 +559,91 @@ function PatientProgressNotes({ patientId }: { patientId: string }) {
 }
 
 export default function Records() {
+  const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [editSessionDialogOpen, setEditSessionDialogOpen] = useState(false);
+  const [selectedSessionForEdit, setSelectedSessionForEdit] = useState<Session | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string>("all");
   const [selectedSessionForEvidence, setSelectedSessionForEvidence] = useState<{ id: string; patientId: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  const [editNotes, setEditNotes] = useState("");
+  const [editObservations, setEditObservations] = useState("");
+  const [editProgress, setEditProgress] = useState("");
+  const [editDuration, setEditDuration] = useState("");
 
   const { data: sessions, isLoading: sessionsLoading } = useQuery<Session[]>({
     queryKey: ["/api/sessions"],
   });
+
+  const updateSessionMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return await apiRequest("PATCH", `/api/sessions/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      toast({
+        title: "Sesión actualizada",
+        description: "Los cambios se han guardado correctamente",
+      });
+      setEditSessionDialogOpen(false);
+      setSelectedSessionForEdit(null);
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo actualizar la sesión",
+      });
+    },
+  });
+
+  const deleteSessionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/sessions/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      toast({
+        title: "Sesión eliminada",
+        description: "La sesión ha sido eliminada",
+      });
+      setEditSessionDialogOpen(false);
+      setSelectedSessionForEdit(null);
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo eliminar la sesión",
+      });
+    },
+  });
+
+  const handleEditSession = (session: Session) => {
+    setSelectedSessionForEdit(session);
+    setEditNotes(session.notes || "");
+    setEditObservations(session.observations || "");
+    setEditProgress(session.progress || "");
+    setEditDuration(session.duration || "60 min");
+    setEditSessionDialogOpen(true);
+  };
+
+  const handleSaveSession = () => {
+    if (!selectedSessionForEdit) return;
+    
+    updateSessionMutation.mutate({
+      id: selectedSessionForEdit.id,
+      data: {
+        notes: editNotes,
+        observations: editObservations,
+        progress: editProgress,
+        duration: editDuration,
+      },
+    });
+  };
 
   const { data: patients } = useQuery<Patient[]>({
     queryKey: ["/api/patients"],
@@ -715,6 +791,7 @@ export default function Records() {
                 setSelectedSessionForEvidence({ id: sessionId, patientId });
                 setEvidenceDialogOpen(true);
               }}
+              onEditSession={handleEditSession}
             />
           </TabsContent>
 
@@ -770,6 +847,7 @@ export default function Records() {
             setSelectedSessionForEvidence({ id: sessionId, patientId });
             setEvidenceDialogOpen(true);
           }}
+          onEditSession={handleEditSession}
           onEmptyAddSession={() => setDialogOpen(true)}
         />
       )}
@@ -791,6 +869,133 @@ export default function Records() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={editSessionDialogOpen} onOpenChange={setEditSessionDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Editar Sesión Clínica
+            </DialogTitle>
+            <DialogDescription>
+              Actualiza la información de la sesión terapéutica
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedSessionForEdit && (
+            <div className="space-y-6">
+              <div className="bg-muted p-4 rounded-lg">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <Label className="text-muted-foreground">Paciente</Label>
+                    <p className="font-semibold">
+                      {patients?.find(p => p.id === selectedSessionForEdit.patientId)?.firstName}{" "}
+                      {patients?.find(p => p.id === selectedSessionForEdit.patientId)?.lastName}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Fecha</Label>
+                    <p className="font-semibold">
+                      {format(new Date(selectedSessionForEdit.sessionDate), "PPP", { locale: es })}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Terapeuta</Label>
+                    <p className="font-semibold">
+                      {therapists?.find(t => t.id === selectedSessionForEdit.therapistId)?.name}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Tipo de Terapia</Label>
+                    <p className="font-semibold">
+                      {therapyTypes?.find(tt => tt.id === selectedSessionForEdit.therapyTypeId)?.name}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label>Duración</Label>
+                  <Select value={editDuration} onValueChange={setEditDuration}>
+                    <SelectTrigger data-testid="select-edit-duration">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30 min">30 minutos</SelectItem>
+                      <SelectItem value="45 min">45 minutos</SelectItem>
+                      <SelectItem value="60 min">60 minutos</SelectItem>
+                      <SelectItem value="90 min">90 minutos</SelectItem>
+                      <SelectItem value="120 min">120 minutos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Notas de la Sesión</Label>
+                  <Textarea 
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    placeholder="Describe lo que se realizó durante la sesión, técnicas aplicadas, áreas tratadas..."
+                    rows={4}
+                    className="font-serif"
+                    data-testid="input-edit-notes"
+                  />
+                </div>
+
+                <div>
+                  <Label>Observaciones Clínicas</Label>
+                  <Textarea 
+                    value={editObservations}
+                    onChange={(e) => setEditObservations(e.target.value)}
+                    placeholder="Observaciones sobre el estado del paciente, reacciones, hallazgos..."
+                    rows={3}
+                    className="font-serif"
+                    data-testid="input-edit-observations"
+                  />
+                </div>
+
+                <div>
+                  <Label>Progreso del Paciente</Label>
+                  <Textarea 
+                    value={editProgress}
+                    onChange={(e) => setEditProgress(e.target.value)}
+                    placeholder="Avances observados, comparación con sesiones anteriores, próximos pasos..."
+                    rows={3}
+                    className="font-serif"
+                    data-testid="input-edit-progress"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-between pt-4 border-t">
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={() => deleteSessionMutation.mutate(selectedSessionForEdit.id)}
+                  disabled={deleteSessionMutation.isPending}
+                  data-testid="button-delete-session"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Eliminar Sesión
+                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setEditSessionDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button 
+                    onClick={handleSaveSession}
+                    disabled={updateSessionMutation.isPending}
+                    data-testid="button-save-session"
+                  >
+                    {updateSessionMutation.isPending ? "Guardando..." : "Guardar Cambios"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -802,6 +1007,7 @@ function SessionsList({
   therapyTypes,
   isLoading,
   onAddEvidence,
+  onEditSession,
   onEmptyAddSession,
 }: {
   sessions: Session[];
@@ -810,6 +1016,7 @@ function SessionsList({
   therapyTypes?: TherapyType[];
   isLoading?: boolean;
   onAddEvidence: (sessionId: string, patientId: string) => void;
+  onEditSession?: (session: Session) => void;
   onEmptyAddSession?: () => void;
 }) {
   if (isLoading) {
@@ -870,6 +1077,17 @@ function SessionsList({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {onEditSession && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => onEditSession(session)}
+                      data-testid={`button-edit-session-${session.id}`}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Ver / Editar
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"

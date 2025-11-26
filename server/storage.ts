@@ -44,6 +44,8 @@ export interface IStorage {
   getSessions(): Promise<Session[]>;
   getSession(id: string): Promise<Session | undefined>;
   createSession(session: InsertSession): Promise<Session>;
+  updateSession(id: string, session: Partial<InsertSession>): Promise<Session | undefined>;
+  deleteSession(id: string): Promise<boolean>;
   
   getProtocols(): Promise<Protocol[]>;
   getProtocol(id: string): Promise<Protocol | undefined>;
@@ -445,6 +447,26 @@ export class MemStorage implements IStorage {
     };
     this.sessions.set(id, session);
     return session;
+  }
+
+  async updateSession(id: string, updates: Partial<InsertSession>): Promise<Session | undefined> {
+    const session = this.sessions.get(id);
+    if (!session) return undefined;
+    
+    const updatedSession: Session = {
+      ...session,
+      ...updates,
+      notes: updates.notes !== undefined ? this.toNull(updates.notes) : session.notes,
+      observations: updates.observations !== undefined ? this.toNull(updates.observations) : session.observations,
+      progress: updates.progress !== undefined ? this.toNull(updates.progress) : session.progress,
+    };
+    
+    this.sessions.set(id, updatedSession);
+    return updatedSession;
+  }
+
+  async deleteSession(id: string): Promise<boolean> {
+    return this.sessions.delete(id);
   }
 
   async getProtocols(): Promise<Protocol[]> {
