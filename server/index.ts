@@ -7,6 +7,8 @@ import { setupVite, serveStatic, log } from "./vite";
 const app = express();
 const MemoryStore = createMemoryStore(session);
 
+app.set('trust proxy', 1);
+
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
@@ -38,7 +40,8 @@ app.use(
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000
+      maxAge: 24 * 60 * 60 * 1000,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
     }
   })
 );
