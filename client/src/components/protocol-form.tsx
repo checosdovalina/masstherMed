@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { insertProtocolSchema, type InsertProtocol, type Protocol, type Patient, type TherapyType } from "@shared/schema";
+import { insertProtocolSchema, type InsertProtocol, type Protocol, type TherapyType } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,43 +21,22 @@ import { z } from "zod";
 
 interface ProtocolFormProps {
   protocol?: Protocol;
-  patientId?: string;
   onSuccess?: () => void;
 }
 
-const formSchema = insertProtocolSchema.extend({
-  startDate: z.string().min(1, "La fecha de inicio es requerida"),
-  endDate: z.string().optional(),
-}).refine(
-  (data) => {
-    if (data.endDate && data.startDate) {
-      return new Date(data.endDate) >= new Date(data.startDate);
-    }
-    return true;
-  },
-  {
-    message: "La fecha de finalización debe ser posterior a la fecha de inicio",
-    path: ["endDate"],
-  }
-).refine(
-  (data) => {
-    return data.completedSessions <= data.totalSessions;
-  },
-  {
-    message: "Las sesiones completadas no pueden exceder el total de sesiones",
-    path: ["completedSessions"],
-  }
-);
+const formSchema = z.object({
+  therapyTypeId: z.string().min(1, "El tipo de terapia es requerido"),
+  name: z.string().min(1, "El nombre es requerido"),
+  description: z.string().optional(),
+  objectives: z.string().optional(),
+  totalSessions: z.coerce.number().int().min(1, "Debe tener al menos 1 sesión"),
+});
 
 type FormData = z.infer<typeof formSchema>;
 
-export function ProtocolForm({ protocol, patientId, onSuccess }: ProtocolFormProps) {
+export function ProtocolForm({ protocol, onSuccess }: ProtocolFormProps) {
   const { toast } = useToast();
   const isEditing = !!protocol;
-
-  const { data: patients } = useQuery<Patient[]>({
-    queryKey: ["/api/patients"],
-  });
 
   const { data: therapyTypes } = useQuery<TherapyType[]>({
     queryKey: ["/api/therapy-types"],
@@ -66,37 +45,20 @@ export function ProtocolForm({ protocol, patientId, onSuccess }: ProtocolFormPro
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      patientId: patientId || protocol?.patientId || "",
       therapyTypeId: protocol?.therapyTypeId || "",
       name: protocol?.name || "",
       description: protocol?.description ?? "",
       objectives: protocol?.objectives ?? "",
       totalSessions: protocol?.totalSessions || 10,
-      completedSessions: protocol?.completedSessions || 0,
-      status: (protocol?.status as "active" | "completed" | "cancelled") || "active",
-      startDate: protocol?.startDate 
-        ? new Date(protocol.startDate).toISOString().split('T')[0] 
-        : "",
-      endDate: protocol?.endDate 
-        ? new Date(protocol.endDate).toISOString().split('T')[0] 
-        : "",
     },
   });
 
   const saveProtocolMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const { startDate, endDate, ...rest } = data;
-      
-      const protocolData: InsertProtocol = {
-        ...rest,
-        startDate: new Date(startDate),
-        endDate: endDate ? new Date(endDate) : undefined,
-      };
-      
       if (isEditing) {
-        return await apiRequest("PATCH", `/api/protocols/${protocol.id}`, protocolData);
+        return await apiRequest("PATCH", `/api/protocols/${protocol.id}`, data);
       } else {
-        return await apiRequest("POST", "/api/protocols", protocolData);
+        return await apiRequest("POST", "/api/protocols", data);
       }
     },
     onSuccess: () => {
@@ -109,10 +71,10 @@ export function ProtocolForm({ protocol, patientId, onSuccess }: ProtocolFormPro
       });
       onSuccess?.();
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Ocurrió un error al guardar el protocolo.",
+        description: error.message || "Ocurrió un error al guardar el protocolo.",
         variant: "destructive",
       });
     },
@@ -127,31 +89,20 @@ export function ProtocolForm({ protocol, patientId, onSuccess }: ProtocolFormPro
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
-          name="patientId"
+          name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Paciente</FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
-                value={field.value}
-                disabled={!!patientId || isEditing}
-              >
-                <FormControl>
-                  <SelectTrigger data-testid="select-protocol-patient">
-                    <SelectValue placeholder="Selecciona un paciente" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {patients?.map((patient) => (
-                    <SelectItem 
-                      key={patient.id} 
-                      value={patient.id}
-                    >
-                      {patient.firstName} {patient.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormLabel>Nombre del Protocolo</FormLabel>
+              <FormControl>
+                <Input 
+                  placeholder="ej: Rehabilitación de Columna Lumbar"
+                  {...field} 
+                  data-testid="input-protocol-name"
+                />
+              </FormControl>
+              <FormDescription>
+                Nombre descriptivo para identificar este protocolo
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -187,31 +138,13 @@ export function ProtocolForm({ protocol, patientId, onSuccess }: ProtocolFormPro
 
         <FormField
           control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Nombre del Protocolo</FormLabel>
-              <FormControl>
-                <Input 
-                  placeholder="ej: Rehabilitación de Columna"
-                  {...field} 
-                  data-testid="input-protocol-name"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
           name="description"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Descripción</FormLabel>
               <FormControl>
                 <Textarea 
-                  placeholder="Descripción del protocolo de tratamiento"
+                  placeholder="Descripción del protocolo de tratamiento..."
                   rows={3}
                   {...field} 
                   data-testid="input-protocol-description"
@@ -230,7 +163,7 @@ export function ProtocolForm({ protocol, patientId, onSuccess }: ProtocolFormPro
               <FormLabel>Objetivos</FormLabel>
               <FormControl>
                 <Textarea 
-                  placeholder="Objetivos terapéuticos del protocolo"
+                  placeholder="Objetivos terapéuticos del protocolo..."
                   rows={3}
                   {...field} 
                   data-testid="input-protocol-objectives"
@@ -244,114 +177,25 @@ export function ProtocolForm({ protocol, patientId, onSuccess }: ProtocolFormPro
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="totalSessions"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Total de Sesiones</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number"
-                    min="1"
-                    placeholder="10"
-                    {...field}
-                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                    value={field.value}
-                    data-testid="input-protocol-total-sessions"
-                  />
-                </FormControl>
-                <FormDescription>
-                  Número total de sesiones planificadas en este protocolo
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="completedSessions"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Sesiones Completadas</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    {...field}
-                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                    value={field.value}
-                    data-testid="input-protocol-completed-sessions"
-                  />
-                </FormControl>
-                <FormDescription>
-                  Sesiones ya realizadas del protocolo
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="startDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Fecha de Inicio</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="date"
-                    {...field} 
-                    data-testid="input-protocol-start-date"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="endDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Fecha de Finalización (opcional)</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="date"
-                    {...field} 
-                    data-testid="input-protocol-end-date"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
         <FormField
           control={form.control}
-          name="status"
+          name="totalSessions"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Estado</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger data-testid="select-protocol-status">
-                    <SelectValue placeholder="Selecciona el estado" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="active">Activo</SelectItem>
-                  <SelectItem value="completed">Completado</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormLabel>Total de Sesiones Recomendadas</FormLabel>
+              <FormControl>
+                <Input 
+                  type="number"
+                  min="1"
+                  placeholder="10"
+                  {...field}
+                  value={field.value ?? ""}
+                  data-testid="input-protocol-total-sessions"
+                />
+              </FormControl>
+              <FormDescription>
+                Número de sesiones estándar para este protocolo
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

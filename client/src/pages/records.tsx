@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, FileText, Search, Image, File, Camera, Trash2, Calendar, User, TrendingUp, X, Edit, Eye } from "lucide-react";
+import { Plus, FileText, Search, Image, File, Camera, Trash2, Calendar, User, TrendingUp, X, Edit, Eye, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { SessionForm } from "@/components/session-form";
+import { ProtocolAssignmentForm } from "@/components/protocol-assignment-form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -20,7 +22,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Session, Patient, Therapist, TherapyType, SessionEvidence, ProgressNote } from "@shared/schema";
+import type { Session, Patient, Therapist, TherapyType, SessionEvidence, ProgressNote, Protocol, ProtocolAssignment } from "@shared/schema";
 
 const evidenceFormSchema = z.object({
   fileUrl: z.string().min(1, "El archivo es requerido"),
@@ -558,11 +560,181 @@ function PatientProgressNotes({ patientId }: { patientId: string }) {
   );
 }
 
+interface AssignmentWithProtocol extends ProtocolAssignment {
+  protocol?: {
+    name: string;
+    totalSessions: number;
+    therapyTypeId: string;
+    description?: string | null;
+    objectives?: string | null;
+  };
+}
+
+function PatientProtocols({ patientId }: { patientId: string }) {
+  const { toast } = useToast();
+
+  const { data: assignments, isLoading } = useQuery<AssignmentWithProtocol[]>({
+    queryKey: ["/api/protocol-assignments/patient", patientId],
+    queryFn: async () => {
+      const res = await fetch(`/api/protocol-assignments/patient/${patientId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Error al cargar protocolos");
+      return res.json();
+    },
+  });
+
+  const { data: therapyTypes } = useQuery<TherapyType[]>({
+    queryKey: ["/api/therapy-types"],
+  });
+
+  const updateAssignmentMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return await apiRequest("PATCH", `/api/protocol-assignments/${id}`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/protocol-assignments/patient", patientId] });
+      toast({
+        title: "Protocolo actualizado",
+        description: "El estado del protocolo ha sido actualizado",
+      });
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo actualizar el protocolo",
+      });
+    },
+  });
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "active":
+        return <Badge variant="default">Activo</Badge>;
+      case "completed":
+        return <Badge variant="secondary">Completado</Badge>;
+      case "cancelled":
+        return <Badge variant="destructive">Cancelado</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2].map((i) => (
+          <Skeleton key={i} className="h-32" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!assignments || assignments.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Sin protocolos asignados</h3>
+          <p className="text-sm text-muted-foreground">
+            Este paciente no tiene protocolos de tratamiento asignados
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {assignments.map((assignment) => {
+        const therapyType = therapyTypes?.find(tt => tt.id === assignment.protocol?.therapyTypeId);
+        const progressPercent = assignment.protocol 
+          ? (assignment.completedSessions / assignment.protocol.totalSessions) * 100
+          : 0;
+
+        return (
+          <Card key={assignment.id} data-testid={`assignment-${assignment.id}`}>
+            <CardContent className="pt-4">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="font-semibold">{assignment.protocol?.name || "Protocolo"}</h4>
+                    {getStatusBadge(assignment.status)}
+                  </div>
+                  {therapyType && (
+                    <Badge 
+                      variant="outline" 
+                      className="mb-2"
+                      style={{ borderColor: therapyType.color, color: therapyType.color }}
+                    >
+                      {therapyType.name}
+                    </Badge>
+                  )}
+                </div>
+                {assignment.status === "active" && (
+                  <div className="flex gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateAssignmentMutation.mutate({ id: assignment.id, status: "completed" })}
+                      data-testid={`button-complete-assignment-${assignment.id}`}
+                    >
+                      Completar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => updateAssignmentMutation.mutate({ id: assignment.id, status: "cancelled" })}
+                      data-testid={`button-cancel-assignment-${assignment.id}`}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between text-sm">
+                  <span>Progreso</span>
+                  <span className="text-muted-foreground">
+                    {assignment.completedSessions} / {assignment.protocol?.totalSessions || 0} sesiones
+                  </span>
+                </div>
+                <Progress value={progressPercent} className="h-2" />
+              </div>
+
+              <div className="flex gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  <span>Inicio: {format(new Date(assignment.startDate), "PP", { locale: es })}</span>
+                </div>
+                {assignment.endDate && (
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    <span>Fin: {format(new Date(assignment.endDate), "PP", { locale: es })}</span>
+                  </div>
+                )}
+              </div>
+
+              {assignment.protocol?.objectives && (
+                <div className="mt-3 p-3 bg-muted rounded-md">
+                  <p className="text-sm font-medium mb-1">Objetivos:</p>
+                  <p className="text-sm text-muted-foreground font-serif">{assignment.protocol.objectives}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Records() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [protocolDialogOpen, setProtocolDialogOpen] = useState(false);
   const [editSessionDialogOpen, setEditSessionDialogOpen] = useState(false);
   const [selectedSessionForEdit, setSelectedSessionForEdit] = useState<Session | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string>("all");
@@ -771,6 +943,10 @@ export default function Records() {
               <FileText className="h-4 w-4 mr-2" />
               Sesiones
             </TabsTrigger>
+            <TabsTrigger value="protocols" data-testid="tab-protocols">
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Protocolos
+            </TabsTrigger>
             <TabsTrigger value="evidence" data-testid="tab-evidence">
               <Image className="h-4 w-4 mr-2" />
               Evidencia
@@ -793,6 +969,22 @@ export default function Records() {
               }}
               onEditSession={handleEditSession}
             />
+          </TabsContent>
+
+          <TabsContent value="protocols" className="mt-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Protocolos Asignados</h3>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setProtocolDialogOpen(true)}
+                data-testid="button-assign-protocol"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Asignar Protocolo
+              </Button>
+            </div>
+            <PatientProtocols patientId={selectedPatientId} />
           </TabsContent>
 
           <TabsContent value="evidence" className="mt-4">
@@ -993,6 +1185,25 @@ export default function Records() {
                 </div>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={protocolDialogOpen} onOpenChange={setProtocolDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Asignar Protocolo de Tratamiento</DialogTitle>
+            <DialogDescription>
+              Selecciona un protocolo para asignar a este paciente
+            </DialogDescription>
+          </DialogHeader>
+          {selectedPatientId !== "all" && (
+            <ProtocolAssignmentForm
+              patientId={selectedPatientId}
+              onSuccess={() => {
+                setProtocolDialogOpen(false);
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>
