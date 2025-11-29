@@ -25,6 +25,7 @@ import ClinicalHistory from "@/pages/clinical-history";
 import Usuarios from "@/pages/usuarios";
 import Packages from "@/pages/packages";
 import Requests from "@/pages/requests";
+import MyAgenda from "@/pages/my-agenda";
 import NotFound from "@/pages/not-found";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -89,6 +90,7 @@ function DashboardLayout() {
           <main className="flex-1 overflow-auto p-6">
             <Switch>
               <Route path="/dashboard" component={Dashboard} />
+              <Route path="/mi-agenda" component={MyAgenda} />
               <Route path="/pacientes" component={Patients} />
               <Route path="/pacientes/:id" component={PatientDetail} />
               <Route path="/citas" component={Appointments} />

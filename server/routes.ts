@@ -255,7 +255,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/appointments", requireAuth, async (req, res) => {
     try {
-      const appointments = await storage.getAppointments();
+      const { therapistId } = req.query;
+      let appointments = await storage.getAppointments();
+      
+      if (therapistId && typeof therapistId === 'string') {
+        appointments = appointments.filter(a => a.therapistId === therapistId);
+      }
+      
       res.json(appointments);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch appointments" });
@@ -291,7 +297,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/sessions", requireAuth, async (req, res) => {
     try {
-      const sessions = await storage.getSessions();
+      const { therapistId } = req.query;
+      let sessions = await storage.getSessions();
+      
+      if (therapistId && typeof therapistId === 'string') {
+        sessions = sessions.filter(s => s.therapistId === therapistId);
+      }
+      
       res.json(sessions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch sessions" });
