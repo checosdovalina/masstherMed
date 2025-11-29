@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     onSuccess: (data) => {
       setUser(data.user);
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/session"] });
+      queryClient.setQueryData(["/api/auth/session"], { user: data.user });
     },
   });
 
